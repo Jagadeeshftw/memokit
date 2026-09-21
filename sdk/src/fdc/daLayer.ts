@@ -71,4 +71,47 @@ export class DaLayerClient {
         `(last: HTTP ${lastStatus} ${lastBody})`,
     );
   }
+
+  /**
+   * Search a bounded window of voting rounds for a proof of `abiEncodedRequest`.
+   *
+   * The DA Layer is keyed by (votingRoundId, requestBytes), not by XRPL transaction, so
+   * "does a proof exist for this payment" cannot be asked directly. The round an attestation
+   * landed in is decided by when somebody submitted the *request*, which is not recorded
+   * anywhere the classifier can cheaply read: `eth_getLogs` on the public Coston2 RPC is
+   * capped at 30 blocks, so scanning for the `AttestationRequest` event is not an option
+   * either.
+   *
+   * So this scans forward from the round covering the XRPL close. In practice an executor
+   * submits within a round or two. The window is bounded and small because the DA Layer
+   * allows roughly 20 requests per minute with no rate-limit headers to back off against
+   * (measured in Phase 1), and a classifier that burns the budget is worse than one that
+   * occasionally answers "not yet".
+   *
+   * A negative answer therefore means "no proof in the scanned window", not "no proof". The
+   * rescue built on it -- request an attestation -- is idempotent, so guessing low is safe.
+   *
+   * @param fromRound First round to try, normally the one covering the XRPL close.
+   * @param rounds How many consecutive rounds to try.
+   */
+  async findProofNear(
+    abiEncodedRequest: string,
+    fromRound: number,
+    rounds = 8,
+  ): Promise<{ votingRoundId: number; proof: DaProofResponse } | null> {
+    for (let i = 0; i < rounds; i++) {
+      const votingRoundId = fromRound + i;
+      const { status, body } = await this.proofByRequestRound(votingRoundId, abiEncodedRequest);
+      if (status === 200 && "proof" in body && "response_hex" in body) {
+        return { votingRoundId, proof: body as DaProofResponse };
+      }
+      if (status === 429) {
+        // Out of budget. Reporting "not found" here would be a lie by omission.
+        throw new Error(
+          `DA Layer rate limit hit while searching rounds ${fromRound}..${votingRoundId}`,
+        );
+      }
+    }
+    return null;
+  }
 }

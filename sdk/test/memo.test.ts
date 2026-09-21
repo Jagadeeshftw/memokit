@@ -116,6 +116,13 @@ const memoArb: fc.Arbitrary<Memo> = fc.oneof(
     newNonce: u256Arb,
   }),
   fc.record({
+    kind: fc.constant("nonceAtLeast" as const),
+    opcode: fc.constant(Opcode.NonceAtLeast),
+    walletId: byteArb,
+    executorFee: u64Arb,
+    targetNonce: u256Arb,
+  }),
+  fc.record({
     kind: fc.constant("replaceFee" as const),
     opcode: fc.constant(Opcode.ReplaceFee),
     walletId: byteArb,

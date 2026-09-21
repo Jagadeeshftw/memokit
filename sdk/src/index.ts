@@ -9,6 +9,8 @@
 export * from "./types.js";
 export * from "./memo.js";
 export * from "./postConditions.js";
+export * from "./rescue.js";
+export * from "./xrplHistory.js";
 export * from "./networks.js";
 export * from "./deadline.js";
 export {

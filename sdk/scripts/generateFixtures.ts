@@ -262,6 +262,16 @@ const cases: FixtureCase[] = [
     targetTransactionId: TX_A,
   },
   {
+    ...base("nonceAtLeast/idempotent-target", {
+      kind: "nonceAtLeast",
+      opcode: Opcode.NonceAtLeast,
+      walletId: 4,
+      executorFee: 0n,
+      targetNonce: 12n,
+    }),
+    newNonce: hex(12n, 32),
+  },
+  {
     ...base("setNonce/small", {
       kind: "setNonce",
       opcode: Opcode.SetNonce,

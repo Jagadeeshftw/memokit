@@ -213,4 +213,76 @@ contract RecoveryTest is MemoKitTestBase {
         vm.expectRevert(abi.encodeWithSelector(Execution.TransactionAlreadyUsed.selector, TX_FIX));
         controller.execute(_proof(TX_FIX, _ignoreMemo(TX_NEXT)), "");
     }
+
+    // --- 0xFB: the race-free nonce rescue --------------------------------------------------
+
+    function _nonceAtLeastMemo(uint256 _target) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            _header(MemoCodec.OP_NONCE_AT_LEAST, 1, uint64(0)), bytes32(_target)
+        );
+    }
+
+    function test_nonceAtLeastAdvancesTheNonce() public {
+        vm.prank(executor);
+        controller.execute(_proof(TX_FIX, _nonceAtLeastMemo(7)), "");
+        assertEq(controller.nonceOf(account), 7);
+    }
+
+    /**
+     * @dev The whole reason 0xFB exists. A user signs a rescue for a queue stuck at nonce 3.
+     *      During the ~150 s the attestation takes, the queue unsticks itself and the nonce
+     *      reaches 5. An 0xE1 rescue for "exactly 4" now reverts -- the rescue fails because the
+     *      problem went away, which is the worst time for it to be brittle. 0xFB is a no-op.
+     */
+    function test_nonceAtLeastIsANoOpWhenTheQueueUnstuckItself() public {
+        vm.prank(executor);
+        controller.execute(_proof(TX_FIX, _setNonceMemo(5)), "");
+        assertEq(controller.nonceOf(account), 5);
+
+        // 0xE1 for a now-stale target: reverts.
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(Execution.InvalidNonceIncrease.selector, 5, 4));
+        controller.execute(_proof(TX_NEXT, _setNonceMemo(4)), "");
+
+        // 0xFB for the same target: succeeds and changes nothing.
+        vm.prank(executor);
+        controller.execute(_proof(bytes32(uint256(0xfb1)), _nonceAtLeastMemo(4)), "");
+        assertEq(controller.nonceOf(account), 5, "left where it already was");
+    }
+
+    function test_nonceAtLeastIsIdempotent() public {
+        vm.prank(executor);
+        controller.execute(_proof(TX_FIX, _nonceAtLeastMemo(9)), "");
+        vm.prank(executor);
+        controller.execute(_proof(TX_NEXT, _nonceAtLeastMemo(9)), "");
+        assertEq(controller.nonceOf(account), 9, "twice is the same as once");
+    }
+
+    /// @dev The uint32 cap still applies, so a single memo cannot brick the account.
+    function test_nonceAtLeastIsStillCapped() public {
+        uint256 tooFar = uint256(type(uint32).max) + 1;
+        vm.prank(executor);
+        vm.expectRevert(
+            abi.encodeWithSelector(Execution.InvalidNonceIncrease.selector, 0, tooFar)
+        );
+        controller.execute(_proof(TX_FIX, _nonceAtLeastMemo(tooFar)), "");
+    }
+
+    function test_nonceAtLeastUnsticksAQueueLikeSetNonceDoes() public {
+        // An instruction at nonce 2 that can never run: the queue behind it is blocked.
+        bytes memory blocked = _instruction(account, 3, _transferCalls(1_000));
+        bytes memory memo =
+            abi.encodePacked(_header(MemoCodec.OP_EXEC_COMMIT, 1, uint64(0)), keccak256(blocked));
+
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(Execution.InvalidNonce.selector, 0, 3));
+        controller.execute(_proof(TX_BAD, memo), blocked);
+
+        vm.prank(executor);
+        controller.execute(_proof(TX_FIX, _nonceAtLeastMemo(3)), "");
+
+        vm.prank(executor);
+        controller.execute(_proof(TX_BAD, memo), blocked);
+        assertEq(controller.nonceOf(account), 4);
+    }
 }

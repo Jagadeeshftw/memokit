@@ -89,6 +89,26 @@ library Execution {
         state.nonces[_account] = expected + 1;
     }
 
+    /**
+     * @notice Raise an account's nonce to at least `_target`, doing nothing if already past.
+     * @dev The race-free counterpart to {setNonce}. See the note on `MemoCodec.targetNonce`.
+     *      The same uint32 cap applies, so a single memo still cannot brick the account.
+     * @return _moved True when the nonce actually advanced.
+     */
+    function requireNonceAtLeast(address _account, uint256 _target) internal returns (bool _moved) {
+        State storage state = getState();
+        uint256 current = state.nonces[_account];
+        if (current >= _target) {
+            return false;
+        }
+        require(
+            _target - current <= type(uint32).max, InvalidNonceIncrease(current, _target)
+        );
+        state.nonces[_account] = _target;
+        emit NonceSet(_account, _target);
+        return true;
+    }
+
     function setReplacementFee(address _account, bytes32 _targetTransactionId, uint64 _newFee) internal {
         getState().replacementFee[_account][_targetTransactionId] = _newFee + 1;
         emit ReplacementFeeSet(_account, _targetTransactionId, _newFee);

@@ -18,12 +18,21 @@ export const Opcode = {
   SetNonce: 0xe1,
   /** Override the executor fee for a specific transaction id. */
   ReplaceFee: 0xe2,
+  /**
+   * Advance the nonce to at least a target. Idempotent and monotonic.
+   *
+   * The race-free counterpart to {@link Opcode.SetNonce}: 0xE1 needs an exact value chosen at
+   * signing time and reverts if anything else moved the nonce during the ~150 s the memo takes
+   * to land, so the rescue for a stuck queue can fail precisely because the queue unstuck
+   * itself. 0xFB says "be at least N", which cannot go stale.
+   */
+  NonceAtLeast: 0xfb,
 } as const;
 
 export type OpcodeValue = (typeof Opcode)[keyof typeof Opcode];
 
 /** Reserved for future memokit opcodes; encoding one is rejected. */
-export const RESERVED_OPCODES = [0xf8, 0xf9, 0xfa, 0xfb] as const;
+export const RESERVED_OPCODES = [0xf8, 0xf9, 0xfa] as const;
 
 /** Opcodes owned by Flare Smart Accounts. memokit never emits these. */
 export const FSA_OPCODES = [0xff, 0xfe, 0xd0, 0xd1] as const;
@@ -147,4 +156,5 @@ export type Memo =
   | ({ kind: "execCommit" } & MemoHeader & { commitment: string })
   | ({ kind: "ignore" } & MemoHeader & { targetTransactionId: string })
   | ({ kind: "setNonce" } & MemoHeader & { newNonce: bigint })
+  | ({ kind: "nonceAtLeast" } & MemoHeader & { targetNonce: bigint })
   | ({ kind: "replaceFee" } & MemoHeader & { targetTransactionId: string; newFee: bigint });

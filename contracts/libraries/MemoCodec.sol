@@ -27,7 +27,7 @@ import {IPostConditions} from "../interfaces/IPostConditions.sol";
  *        | 0xFE   | FSA     | (not ours)                           | --           |
  *        | 0xFD   | memokit | abi.encode(sender, nonce, Call[])    | 10 + N       |
  *        | 0xFC   | memokit | keccak256(payload)                   | 42           |
- *        | 0xFB   | memokit | reserved                             | --           |
+ *        | 0xFB   | memokit | targetNonce (uint256)                | 42           |
  *        | 0xFA   | memokit | reserved                             | --           |
  *        | 0xF9   | memokit | reserved                             | --           |
  *        | 0xF8   | memokit | reserved                             | --           |
@@ -85,11 +85,15 @@ library MemoCodec {
     uint8 internal constant OP_SET_NONCE = 0xE1;
     /// @notice Override the executor fee for a specific transaction id.
     uint8 internal constant OP_REPLACE_FEE = 0xE2;
+    /// @notice Advance the nonce to at least a target. Idempotent; no-op when already past.
+    uint8 internal constant OP_NONCE_AT_LEAST = 0xFB;
 
-    /// @notice Lower bound of the memokit reserved opcode band (inclusive).
+    /// @notice Lower bound of the still-reserved opcode band (inclusive).
     uint8 internal constant RESERVED_LO = 0xF8;
-    /// @notice Upper bound of the memokit reserved opcode band (inclusive).
-    uint8 internal constant RESERVED_HI = 0xFB;
+    /// @notice Upper bound of the still-reserved opcode band (inclusive).
+    /// @dev 0xFB was reserved in Phase 1 and is claimed in Phase 3 by {OP_NONCE_AT_LEAST};
+    ///      0xF8..0xFA remain free.
+    uint8 internal constant RESERVED_HI = 0xFA;
 
     /// @notice Exact memo length for 0xFC, 0xE0 and 0xE1.
     uint256 internal constant LENGTH_WORD = 42;
@@ -166,6 +170,27 @@ library MemoCodec {
     /// @notice New nonce carried by a 0xE1 memo.
     function newNonce(bytes calldata _memo) internal pure returns (uint256) {
         _requireLength(_memo, OP_SET_NONCE, LENGTH_WORD);
+        return uint256(bytes32(_memo[HEADER_LENGTH:LENGTH_WORD]));
+    }
+
+    /**
+     * @notice Target nonce carried by a 0xFB memo.
+     *
+     * @dev Why this exists alongside 0xE1, which also moves the nonce.
+     *
+     *      0xE1 sets the nonce to an exact value and reverts unless that value is strictly
+     *      greater than the current one. The value has to be chosen when the memo is *signed*,
+     *      but the memo does not take effect for around 150 seconds. If anything else executes
+     *      in that window the nonce has already moved, the exact value is stale, and the rescue
+     *      itself reverts -- so the rescue for a stuck queue can fail because the queue became
+     *      unstuck, which is the worst possible time for it to be fragile.
+     *
+     *      0xFB says "be at least N" instead. It is monotonic and idempotent: already past N is
+     *      a success, not a revert. A rescue built from the stuck instruction's own nonce is
+     *      then race-free, which is what makes it safe for tooling to issue automatically.
+     */
+    function targetNonce(bytes calldata _memo) internal pure returns (uint256) {
+        _requireLength(_memo, OP_NONCE_AT_LEAST, LENGTH_WORD);
         return uint256(bytes32(_memo[HEADER_LENGTH:LENGTH_WORD]));
     }
 

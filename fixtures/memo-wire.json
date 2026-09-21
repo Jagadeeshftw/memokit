@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "count": 18,
+  "count": 19,
   "cases": [
     {
       "name": "execInline/every-post-condition-kind",
@@ -592,6 +592,27 @@
       "commitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "targetTransactionId": "0xabababababababababababababababababababababababababababababababab",
       "newNonce": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "newFee": "0x0000000000000000"
+    },
+    {
+      "name": "nonceAtLeast/idempotent-target",
+      "memo": "0xfb040000000000000000000000000000000000000000000000000000000000000000000000000000000c",
+      "opcode": 251,
+      "walletId": 4,
+      "executorFee": "0x0000000000000000",
+      "headerFeeReserved": false,
+      "payload": "0x",
+      "sender": "0x0000000000000000000000000000000000000000",
+      "nonce": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "feeToken": "0x0000000000000000000000000000000000000000",
+      "feeAmount": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "callCount": 0,
+      "payloadVersion": 2,
+      "postConditionCount": 0,
+      "postConditions": [],
+      "commitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "targetTransactionId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "newNonce": "0x000000000000000000000000000000000000000000000000000000000000000c",
       "newFee": "0x0000000000000000"
     },
     {

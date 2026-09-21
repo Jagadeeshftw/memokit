@@ -77,6 +77,9 @@ contract MemoControllerFacet is IMemoController {
         } else if (header.opcode == MemoCodec.OP_SET_NONCE) {
             Execution.setNonce(address(account), MemoCodec.newNonce(memo));
             emit ManagementApplied(address(account), transactionId, header.opcode);
+        } else if (header.opcode == MemoCodec.OP_NONCE_AT_LEAST) {
+            Execution.requireNonceAtLeast(address(account), MemoCodec.targetNonce(memo));
+            emit ManagementApplied(address(account), transactionId, header.opcode);
         } else if (header.opcode == MemoCodec.OP_REPLACE_FEE) {
             (bytes32 target, uint64 newFee) = MemoCodec.replacementFee(memo);
             Execution.setReplacementFee(address(account), target, newFee);

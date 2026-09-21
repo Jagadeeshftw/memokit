@@ -266,6 +266,10 @@ export function encodeMemo(memo: Memo, options: EncodeMemoOptions = {}): string 
       assertUint(memo.newNonce, 256, "newNonce");
       return hexlify(concat([header, zeroPadValue(toBeHex(memo.newNonce), 32)]));
     }
+    case "nonceAtLeast": {
+      assertUint(memo.targetNonce, 256, "targetNonce");
+      return hexlify(concat([header, zeroPadValue(toBeHex(memo.targetNonce), 32)]));
+    }
     case "replaceFee": {
       assertUint(memo.newFee, 64, "newFee");
       const fee = getBytes(zeroPadValue(toBeHex(memo.newFee), 8));
@@ -326,6 +330,14 @@ export function decodeMemo(memoHex: string): Memo {
     case Opcode.SetNonce: {
       requireLength(bytes.length, LENGTH_WORD, opcode);
       return { kind: "setNonce", ...header, newNonce: BigInt(hexlify(bytes.slice(HEADER_LENGTH, LENGTH_WORD))) };
+    }
+    case Opcode.NonceAtLeast: {
+      requireLength(bytes.length, LENGTH_WORD, opcode);
+      return {
+        kind: "nonceAtLeast",
+        ...header,
+        targetNonce: BigInt(hexlify(bytes.slice(HEADER_LENGTH, LENGTH_WORD))),
+      };
     }
     case Opcode.ReplaceFee: {
       requireLength(bytes.length, LENGTH_WORD_FEE, opcode);

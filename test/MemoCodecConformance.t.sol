@@ -162,8 +162,8 @@ contract MemoCodecConformanceTest is Test {
 
     function test_reservedBandIsExactlyF8ToFB() public view {
         for (uint256 op = 0; op <= 0xff; ++op) {
-            bool expected = op >= 0xf8 && op <= 0xfb;
-            assertEq(harness.isReserved(uint8(op)), expected, "reserved band");
+            bool expected = op >= 0xf8 && op <= 0xfa;
+            assertEq(harness.isReserved(uint8(op)), expected, "reserved band: 0xFB is now OP_NONCE_AT_LEAST");
         }
     }
 

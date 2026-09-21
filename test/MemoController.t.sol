@@ -480,7 +480,7 @@ contract MemoControllerTest is MemoKitTestBase {
     // --- opcode discipline ---------------------------------------------------------------
 
     function test_revertsOnReservedOpcode() public {
-        for (uint8 op = 0xf8; op <= 0xfb; ++op) {
+        for (uint8 op = 0xf8; op <= 0xfa; ++op) {
             bytes memory memo = abi.encodePacked(_header(op, 1, uint64(0)), bytes32(0));
             vm.expectRevert(abi.encodeWithSelector(MemoCodec.ReservedOpcode.selector, op));
             controller.execute(_proof(bytes32(uint256(op)), memo), "");
