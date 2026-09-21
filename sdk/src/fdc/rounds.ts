@@ -1,5 +1,5 @@
-import { Contract, JsonRpcProvider } from "ethers";
-import { COSTON2, DA_LAYER } from "../config.js";
+import { Contract, type Provider } from "ethers";
+import { COSTON2 } from "../networks.js";
 
 /**
  * Voting-round arithmetic.
@@ -16,8 +16,9 @@ const RELAY_ABI = ["function getVotingRoundId(uint256 _timestamp) view returns (
 
 export class RoundClock {
   constructor(
-    private readonly provider: JsonRpcProvider = new JsonRpcProvider(COSTON2.rpc),
-    private readonly relayAddress: string = COSTON2.relay,
+    private readonly provider: Provider,
+    private readonly relayAddress: string,
+    private readonly daLayerUrl: string = COSTON2.daLayerUrl,
   ) {}
 
   /** The voting round covering `unixSeconds`, per the Relay contract. */
@@ -38,10 +39,8 @@ export class RoundClock {
    * @dev Used to tell "the proof is not ready yet" apart from "the request was never
    *      attested", which otherwise look identical: both are a 400 from the proof endpoint.
    */
-  async latestFinalisedRound(
-    baseUrl: string = DA_LAYER.coston2,
-  ): Promise<{ votingRoundId: number; startTimestamp: number } | null> {
-    const res = await fetch(`${baseUrl}/api/v0/fsp/latest-voting-round`);
+  async latestFinalisedRound(): Promise<{ votingRoundId: number; startTimestamp: number } | null> {
+    const res = await fetch(`${this.daLayerUrl}/api/v0/fsp/latest-voting-round`);
     if (!res.ok) {
       await res.arrayBuffer();
       return null;

@@ -9,7 +9,7 @@
     "measure:da": "tsx src/measure/daLayer.ts",
     "measure:latency": "tsx src/measure/latency.ts",
     "verify:mic": "tsx src/measure/micOracle.ts",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "e2e": "tsx src/e2e.ts",
     "fund": "tsx src/fundWithFxrp.ts",
     "selectors:refresh": "tsx src/measure/flareSelectors.ts",

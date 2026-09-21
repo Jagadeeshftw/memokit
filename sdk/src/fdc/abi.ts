@@ -5,7 +5,7 @@ import { AbiCoder, encodeBytes32String } from "ethers";
  *
  * Transcribed from `@flarenetwork/flare-periphery-contracts/coston2/IXRPPayment.sol` at the
  * pinned version. Flare publishes no developer-hub page for this type, so this transcription
- * is checked against the live verifier in `measure/micOracle.ts` rather than trusted.
+ * is checked against the live verifier in `executor/src/measure/micOracle.ts` rather than trusted.
  */
 export const REQUEST_BODY_ABI = "tuple(bytes32 transactionId, address proofOwner)";
 

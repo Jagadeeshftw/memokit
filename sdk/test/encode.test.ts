@@ -10,7 +10,7 @@ import {
   encodeResponse,
 } from "../src/fdc/encode.js";
 import type { XrpPaymentResponse } from "../src/fdc/abi.js";
-import { SOURCE_ID_TESTNET } from "../src/config.js";
+import { SOURCE_ID_TESTNET } from "../src/networks.js";
 
 /**
  * Offline regression for the FDC `XRPPayment` encoding.

@@ -1,6 +1,6 @@
 import { keccak256, toUtf8Bytes, ZeroAddress } from "ethers";
 import { b32, type XrpPaymentResponse } from "./abi.js";
-import { ATTESTATION_TYPE_XRP_PAYMENT } from "../config.js";
+import { ATTESTATION_TYPE_XRP_PAYMENT } from "../networks.js";
 
 /**
  * Reconstructs an FDC `XRPPayment` attestation response from raw XRPL ledger data.
@@ -8,7 +8,7 @@ import { ATTESTATION_TYPE_XRP_PAYMENT } from "../config.js";
  * This is what lets memokit compute a message integrity code without asking Flare's
  * verifier. The verifier is API-keyed and Flare-operated; a user should not need Flare's
  * permission to move their own funds, so the only thing we take from the verifier is
- * confirmation that this function is correct (`measure/micOracle.ts`, and the offline
+ * confirmation that this function is correct (`executor/src/measure/micOracle.ts`, and the offline
  * regression in `test/buildResponse.test.ts` which asserts field-for-field equality with a
  * captured verifier response).
  *

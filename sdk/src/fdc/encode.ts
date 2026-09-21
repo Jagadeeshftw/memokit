@@ -7,14 +7,14 @@ import {
   type XrpPaymentRequestBody,
   type XrpPaymentResponse,
 } from "./abi.js";
-import { ATTESTATION_TYPE_XRP_PAYMENT } from "../config.js";
+import { ATTESTATION_TYPE_XRP_PAYMENT } from "../networks.js";
 
 /**
  * Offline construction of an FDC attestation request.
  *
  * Flare's verifier will do this for you, but it is API-keyed and Flare-operated, so keeping it
  * off the critical path is a deliberate choice: everything here is pure computation over data
- * we already hold. `measure/micOracle.ts` checks the result against the verifier so the
+ * we already hold. `executor/src/measure/micOracle.ts` checks the result against the verifier so the
  * independence is proven rather than assumed.
  */
 
@@ -26,7 +26,7 @@ export const MIC_SALT = "Flare";
  *
  * Flare documents the MIC loosely and publishes nothing at all for `XRPPayment`, so rather
  * than guess once and hope, we enumerate the plausible constructions and let the live
- * verifier pick the winner (see `measure/micOracle.ts`). Once identified, {@link computeMic}
+ * verifier pick the winner (see `executor/src/measure/micOracle.ts`). Once identified, {@link computeMic}
  * uses it directly; the others stay as documentation of what was ruled out.
  */
 export const MIC_CANDIDATES = {

@@ -14,12 +14,17 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { encodeMemo, commitmentOf, type Instruction } from "@memokit/sdk";
 import { ZeroAddress } from "ethers";
-import { SOURCE_ID_TESTNET } from "../config.js";
+import { SOURCE_ID_TESTNET, NETWORK } from "../config.js";
+import { toTransactionId } from "@memokit/sdk";
+import { XrplSender } from "@memokit/sdk/xrpl";
 import { VerifierClient } from "../fdc/verifier.js";
-import { XrplTestnet, toTransactionId } from "../xrpl/pay.js";
-import { MIC_CANDIDATES, encodeRequest, type MicCandidateName } from "../fdc/encode.js";
-import type { XrpPaymentResponse } from "../fdc/abi.js";
-import { buildXrpPaymentResponse } from "../fdc/buildResponse.js";
+import {
+  MIC_CANDIDATES,
+  encodeRequest,
+  buildXrpPaymentResponse,
+  type MicCandidateName,
+  type XrpPaymentResponse,
+} from "@memokit/sdk/fdc";
 
 const OUT = resolve(import.meta.dirname, "../../../fixtures/xrppayment-oracle.json");
 
@@ -56,7 +61,7 @@ function toResponse(raw: Record<string, any>): XrpPaymentResponse {
 }
 
 async function main() {
-  const xrpl = new XrplTestnet();
+  const xrpl = new XrplSender(NETWORK.xrpl.websocket);
   const verifier = new VerifierClient();
 
   console.log("funding two XRPL Testnet accounts from the public faucet...");

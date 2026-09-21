@@ -1,5 +1,6 @@
-import { VERIFIER, ATTESTATION_TYPE_XRP_PAYMENT } from "../config.js";
-import { b32, type XrpPaymentRequestBody } from "./abi.js";
+import { ATTESTATION_TYPE_XRP_PAYMENT } from "@memokit/sdk";
+import { b32, type XrpPaymentRequestBody } from "@memokit/sdk/fdc";
+import { VERIFIER } from "../config.js";
 
 /**
  * Client for Flare's verifier servers.

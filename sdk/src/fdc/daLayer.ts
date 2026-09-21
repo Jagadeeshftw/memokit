@@ -1,11 +1,11 @@
-import { DA_LAYER } from "../config.js";
+import { COSTON2 } from "../networks.js";
 
 /**
  * Data Availability Layer client.
  *
  * The one off-chain service memokit genuinely needs, and the one that does not ask for a key.
  * Flare describes the public endpoint as rate-limited without publishing numbers, so
- * `measure/daLayer.ts` measures them instead of trusting the docs.
+ * `executor/src/measure/daLayer.ts` measures them instead of trusting the docs.
  */
 export interface DaProofResponse {
   /** Merkle proof for the attestation, ready to hand to the contract. */
@@ -19,7 +19,7 @@ export interface DaProofResponse {
 }
 
 export class DaLayerClient {
-  constructor(private readonly baseUrl: string = DA_LAYER.coston2) {}
+  constructor(private readonly baseUrl: string = COSTON2.daLayerUrl) {}
 
   /**
    * Fetch the Merkle proof for a request in a finalised voting round.

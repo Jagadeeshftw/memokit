@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { ZeroAddress } from "ethers";
 import { buildXrpPaymentResponse, UnsupportedPaymentError } from "../src/fdc/buildResponse.js";
 import { computeMic } from "../src/fdc/encode.js";
-import { SOURCE_ID_TESTNET } from "../src/config.js";
+import { SOURCE_ID_TESTNET } from "../src/networks.js";
 
 /**
  * Offline proof that memokit needs no verifier.

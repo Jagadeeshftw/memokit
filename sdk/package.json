@@ -1,22 +1,53 @@
 {
   "name": "@memokit/sdk",
   "version": "0.1.0",
-  "private": true,
+  "description": "Execute XRPL-originated calls on Flare, on assets a Flare account already holds. Encode the memo, request the FDC attestation, poll for the proof, submit.",
   "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./fdc": {
+      "types": "./dist/fdc/index.d.ts",
+      "default": "./dist/fdc/index.js"
+    },
+    "./xrpl": {
+      "types": "./dist/xrpl.d.ts",
+      "default": "./dist/xrpl.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.json",
     "test": "vitest run",
-    "fixtures": "tsx src/generateFixtures.ts"
+    "fixtures": "tsx scripts/generateFixtures.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
-  "dependencies": {
-    "ethers": "^6.13.4"
+  "peerDependencies": {
+    "ethers": "^6.13.0",
+    "xrpl": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "xrpl": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "ethers": "^6.13.4",
+    "xrpl": "^4.1.0"
   }
 }

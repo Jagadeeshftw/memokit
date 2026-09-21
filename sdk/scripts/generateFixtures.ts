@@ -10,8 +10,8 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { keccak256, toBeHex, zeroPadValue } from "ethers";
-import { encodeInstruction, encodeMemo, commitmentOf } from "./memo.js";
-import { Opcode, type Instruction, type Memo } from "./types.js";
+import { encodeInstruction, encodeMemo, commitmentOf } from "../src/memo.js";
+import { Opcode, type Instruction, type Memo } from "../src/types.js";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 const ZERO_32 = "0x" + "00".repeat(32);

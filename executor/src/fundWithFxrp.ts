@@ -27,11 +27,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Contract, JsonRpcProvider, Wallet as EvmWallet, AbiCoder, formatUnits } from "ethers";
 import { Wallet as XrplWallet } from "xrpl";
-import { COSTON2, SOURCE_ID_TESTNET, VERIFIER } from "./config.js";
-import { XrplTestnet, toTransactionId } from "./xrpl/pay.js";
-import { DaLayerClient } from "./fdc/daLayer.js";
-import { RoundClock } from "./fdc/rounds.js";
-import { b32 } from "./fdc/abi.js";
+import { toTransactionId } from "@memokit/sdk";
+import { XrplSender } from "@memokit/sdk/xrpl";
+import { DaLayerClient, RoundClock, b32 } from "@memokit/sdk/fdc";
+import { COSTON2, NETWORK, SOURCE_ID_TESTNET, VERIFIER } from "./config.js";
 
 const REPO = resolve(import.meta.dirname, "../..");
 const coder = AbiCoder.defaultAbiCoder();
@@ -86,7 +85,7 @@ async function main() {
   const fAsset = new Contract(fAssetAddress, ERC20, evm);
   const decimals = Number(await fAsset.decimals());
 
-  const xrpl = new XrplTestnet();
+  const xrpl = new XrplSender(NETWORK.xrpl.websocket);
   const xrplWallet = XrplWallet.fromSeed(need("XRPL_SEED"));
   const memokit = new Contract(
     deployment.diamond,
@@ -210,9 +209,9 @@ async function completeMint(
   const reqReceipt = await (await hub.requestAttestation(abiEncodedRequest, { value: fee })).wait();
   console.log(`  requestAttestation ${reqReceipt.hash}`);
 
-  const votingRoundId = await new RoundClock(provider).roundIdOfBlock(reqReceipt.blockNumber);
+  const votingRoundId = await new RoundClock(provider, COSTON2.relay, NETWORK.daLayerUrl).roundIdOfBlock(reqReceipt.blockNumber);
   console.log(`  voting round ${votingRoundId}, waiting for the proof...`);
-  const da = new DaLayerClient();
+  const da = new DaLayerClient(NETWORK.daLayerUrl);
   const proofResponse = await da.waitForProof(
     votingRoundId,
     abiEncodedRequest,
