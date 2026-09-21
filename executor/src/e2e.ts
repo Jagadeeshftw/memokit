@@ -41,7 +41,9 @@ import { DaLayerClient } from "./fdc/daLayer.js";
 import { RoundClock } from "./fdc/rounds.js";
 
 const REPO = resolve(import.meta.dirname, "../..");
-const OUT = resolve(REPO, "fixtures/measurements/e2e-trace.json");
+/** Per-run filename: a second trace must never silently overwrite the first. */
+const OUT = (label: string) =>
+  resolve(REPO, `fixtures/measurements/e2e-trace-${label}.json`);
 
 const ERC20 = [
   "function approve(address,uint256) returns (bool)",
@@ -266,9 +268,10 @@ async function main() {
     },
   };
 
-  mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(OUT, JSON.stringify(trace, null, 2) + "\n");
-  console.log(`\nwrote ${OUT}`);
+  const out = OUT(process.env.TRACE_LABEL ?? `${Date.now()}`);
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, JSON.stringify(trace, null, 2) + "\n");
+  console.log(`\nwrote ${out}`);
   console.log(`latency: ${JSON.stringify(legs)}`);
 
   await xrpl.disconnect();

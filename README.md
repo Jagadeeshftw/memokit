@@ -82,5 +82,21 @@ npm run measure:da -w @memokit/executor   # DA Layer rate limits and finalisatio
   verifier is used only as a test oracle to prove that implementation correct.
 - Networks: Coston2 (Flare) paired with XRPL Testnet, `sourceId = testXRP`.
 
+## Status
+
+Running on Coston2 against XRPL Testnet. Two end-to-end traces, the second into a live
+Coston2 vault:
+
+| | |
+|---|---|
+| memokit diamond | [`0xd1B2EF71B305828Da135d5524E81fDd5523a3f73`](https://coston2-explorer.flare.network/address/0xd1B2EF71B305828Da135d5524E81fDd5523a3f73) |
+| account | `0x823d7dAe9e087D4c96225DE6385376a990067d4e` |
+| XRPL payment | `11A56DB868A09588C2BBC57E6C957FA080FC78EE42561D26AB1ABBED437753A6` |
+| execute | [`0x69f5259f…`](https://coston2-explorer.flare.network/tx/0x69f5259f72139c4307246bbffd11f73937e85eacc34b23dd1718413b56821978) |
+| result | 10.0 → 5.0 FTestXRP, 0 → 4.994505 TESTearnXRP shares, 152 s end to end |
+
+FTestXRP `totalSupply` is identical in the block before and the block containing `execute`:
+no mint in the instruction path.
+
 See [PHASE1.md](PHASE1.md) for what is built, what is measured, and what is still open.
 [phase0-report.md](phase0-report.md) has the investigation this is based on.

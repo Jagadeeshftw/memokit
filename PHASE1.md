@@ -16,55 +16,95 @@ infrastructure on that date; the raw captures are in [`fixtures/`](fixtures/).
 | 2. Memo codec, fixtures, conformance, property tests | done — 35 TS + 11 Solidity conformance tests |
 | 3. Attestation client, offline MIC, DA Layer, measurements | done — **and the verifier is off the critical path, proven** |
 | 4. Contracts: controller, account, recovery | done — 74 Solidity tests |
-| 5. End-to-end on Coston2 + XRPL Testnet | **blocked** — needs a funded Coston2 EOA; see below |
+| 5. End-to-end on Coston2 + XRPL Testnet | done — **two traces**, mock vault and a live Coston2 vault |
 
 Test counts: `forge test` 74 passed; `npm test` 63 passed (35 sdk + 28 executor).
 
 ---
 
-## 1. The blocked item, precisely
+## 1. The acceptance trace
 
-The acceptance trace is the one thing not delivered, and it is blocked on funding, not code.
+Run twice, both on Coston2 and XRPL Testnet, against real FDC attestations.
 
-Coston2's faucet (`https://faucet.flare.network/coston2`) is a browser app with no API, so
-this session could not obtain C2FLR. The XRPL Testnet side is not a problem — its faucet is
-an open HTTP endpoint and this repo already used it to send real Testnet payments (see
-`fixtures/xrppayment-oracle.json`).
+**Deployment** (`fixtures/deployment.json`):
 
-To run it, set `PRIVATE_KEY` to a funded Coston2 EOA and:
+| | |
+|---|---|
+| memokit diamond | `0xd1B2EF71B305828Da135d5524E81fDd5523a3f73` |
+| MemoControllerFacet | `0xc86A57b64eE8A30C7438bea15b6Eb5881A981928` |
+| AdminFacet | `0x588050414b2eD7228E9afd2141B1Ab3D34A0474A` |
+| AccountsFacet | `0x9dB28b3E4AFf8609F2a68D80E1C8270497221FDE` |
+| PersonalAccount impl | `0x714E9B11CBb66716B4a688f5fE33Dde9e9D392D9` |
+| PersonalAccountBeacon | `0x0c5537E3A9D41E4E5DdB48137873786D649E4178` |
+| XRPL owner | `rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE` |
+| receiving address | `rDfVHUx5SMgw5wwqjvzgFEFCnqW5CCGWyW` |
+| derived account | `0x823d7dAe9e087D4c96225DE6385376a990067d4e` |
 
-```bash
-forge script scripts/DeployMemoKit.s.sol:DeployMemoKit \
-  --rpc-url https://coston2-api.flare.network/ext/C/rpc --broadcast
-npm run e2e -w @memokit/executor
-```
+**Run 2 — live Coston2 vault** (`fixtures/measurements/e2e-trace-live-vault.json`). The one
+that matters: real FTestXRP into `TESTearnXRP`, one of the four funded vaults from Phase 0.
 
-`executor/src/e2e.ts` performs the whole path and writes
-`fixtures/measurements/e2e-trace.json` with the XRPL hash, both Coston2 hashes, the vault
-share delta, and per-leg latency.
+| | |
+|---|---|
+| vault | `0xF97B2bBdB2f4a561806e5038a503eCA81554634E` TESTearnXRP |
+| asset | `0x0b6A3645c240605887a5532109323A3E12273dc7` FTestXRP |
+| XRPL tx | `11A56DB868A09588C2BBC57E6C957FA080FC78EE42561D26AB1ABBED437753A6` |
+| memo | `0xfc01…` — opcode `0xFC`, 42 bytes |
+| requestAttestation | `0xded36a56c8faccd5c280507c26253f8450804f43ae5f61c6f2bda7bd3e81272e` |
+| voting round | 1461421 |
+| execute | `0x69f5259f72139c4307246bbffd11f73937e85eacc34b23dd1718413b56821978` |
+| **balances** | **10.0 → 5.0 FTestXRP, 0 → 4.994505 TESTearnXRP** |
+| end to end | **152 s** |
 
-**The funding prerequisite, and the two-run plan.** The personal account must hold the
-vault's asset *before* the instruction runs — that is the whole point of the positioning,
-and `e2e.ts` refuses to proceed otherwise with an explicit message.
+The share count is not 1:1 with the deposit, which is the tell that this is a real vault with
+a real exchange rate: `previewDeposit(5000000)` returns `4994505`, exactly what landed.
 
-The real target is one of the four funded Coston2 vaults, whose asset is FTestXRP
-(`0x0b6A3645c240605887a5532109323A3E12273dc7`), which cannot be minted freely: getting it
-into an account means running the FAssets mint once, out of band, into the account address
-(`computeAccountAddress` gives you that before anything is deployed). That mint sits
-deliberately outside the instruction path, and the trace records the balance before and
-after so the distinction is on the record.
+**Run 1 — mock vault** (`fixtures/measurements/e2e-trace-mock-vault.json`). Same pipeline,
+synthetic deposit target, run first to shake out the plumbing.
 
-So the trace runs twice. First against a mock token and vault from
-`scripts/DeployMocks.s.sol`: every part that can actually fail — the XRPL payment, the
-offline request encoding, the attestation, the DA Layer poll, the on-chain proof
-verification, the dispatch — runs against real Flare infrastructure, and only the deposit
-target is synthetic. Then against a live vault once FTestXRP is in hand, with two addresses
-changed and nothing else.
+| | |
+|---|---|
+| vault / asset | `0x6ed3519C362d7c97198fcdA8822eba67176590ed` / `0x41BbB3B8C1e359D7E8DDCBb3AD6EE140bf82b1e3` |
+| XRPL tx | `47ABC62C4D1B955444A6934C3476B2814A3EFAFC6E411C8845F5D0F61B6F2976` |
+| execute | `0xe58bc5bda9aeff90400a603e5f2f650cc7b37c01fa5309c56570a0562b229dfb` |
+| balances | 100.0 → 75.0 asset, 0 → 25.0 shares |
+| end to end | 162 s |
 
-Everything else in the path is already exercised against live infrastructure: real XRPL
-Testnet payments were sent, indexed by Flare, and attested-in-shape during the MIC work.
+### The claim, checked rather than asserted
 
----
+**No mint in the instruction path.** FTestXRP `totalSupply` is `9150713669273` in block
+35630915 and `9150713669273` in block 35630916, the block containing `execute`. The
+instruction moved a balance that already existed. This is the capability Flare's
+`0xFF`/`0xFE` cannot reach, because those are only ever reached as a side effect of
+`executeDirectMintingWithData`.
+
+**The verifier was not used.** Both runs built the attestation request and its message
+integrity code from XRPL ledger data alone, via `fdc/buildResponse.ts`. FDC confirmed both
+requests, so verifier independence is no longer a claim about an offline fixture.
+
+**Independently verified on chain**, not just read back from the script: account holds
+5000000 FTestXRP and 4994505 vault shares, nonce advanced to 2, the XRPL transaction id is
+marked consumed, and the account reports `xrplOwner()` = `rpnDcUjas…` with `controller()` =
+the diamond. The execute transaction emitted `AccountCreated`, `UserOpExecuted` and
+`InstructionExecuted` whose topic hashes match our declarations exactly.
+
+### Funding the account
+
+`scripts/DeployMocks.s.sol` handles the mock case. For the live vault the account needed
+real FTestXRP, which cannot be minted freely, so `executor/src/fundWithFxrp.ts` runs the
+classic FAssets path out of band: `reserveCollateral` → XRPL payment to the agent →
+`Payment` attestation → `executeMinting` → transfer into the account. The FXRP lands on the
+relayer EOA first and is then transferred in, which keeps funding visibly separate from
+anything memokit does.
+
+Direct minting would have been simpler but is not available to us: Coston2 routes
+direct-mint targets by XRPL **DestinationTag** (confirmed by reading a live direct-mint
+payment — tag 1186 with no memo at all), and tags are registered by Flare, not by arbitrary
+callers. That is worth knowing independently of funding: it means Flare's direct-mint rail
+has a registration gate that memokit's does not.
+
+That funding script does use the verifier, to encode the classic `Payment` request. That is
+deliberate and harmless — it is not the protocol path, and replicating `buildResponse` for a
+second attestation type would prove nothing new.
 
 ## 2. Measured: DA Layer limits
 
@@ -97,22 +137,25 @@ shared public endpoint.
 
 ## 3. Measured: latency
 
-Fully measured legs:
+Every leg, from two complete runs:
 
-| Leg | Measured |
-|---|---|
-| Round finalisation lag (newest finalised round vs wall clock) | **min 5 s, max 85 s, mean ~52 s** over 12 samples |
-| XRPL submit → validated | **~4 s** (single ledger close, observed repeatedly) |
-| XRPL validated → visible to Flare's indexer | **~4–8 s** (1–2 retries at 4 s intervals) |
+| Leg | Run 1 (mock) | Run 2 (live vault) |
+|---|---|---|
+| XRPL submit → validated | 7 s | 7 s |
+| XRPL validated → request built offline | <1 s | <1 s |
+| request built → attestation request mined | 7 s | 5 s |
+| **request mined → proof served by DA Layer** | **144 s** | **136 s** |
+| proof available → `execute` mined | 3 s | 3 s |
+| **total** | **162 s** | **152 s** |
 
-The finalisation figure is consistent with 90 s voting rounds: a request lands uniformly
-within a round, so the wait to round close averages ~45 s. That is a floor nothing we build
-can reduce.
+So roughly **two and a half minutes** from signing the XRPL payment to the deposit landing,
+and around 90% of that is one leg: waiting for the voting round to close and the DA Layer to
+serve the proof. That matches the independently measured round-finalisation lag (mean ~52 s
+on a 90 s round) plus the DA Layer's own publication delay.
 
-Estimated total from these parts: **~2 minutes** from signing the XRPL payment to a usable
-proof, dominated by round finalisation. The one leg still unmeasured is round close → proof
-actually served by the DA Layer, which needs a submitted request and therefore the funded
-EOA. `e2e.ts` records every leg when it runs.
+Two consequences worth stating plainly. Nothing memokit does can meaningfully reduce this —
+the floor is FDC's round cadence, not our code. And the remaining ~15 s of controllable
+latency is not worth optimising until the 140 s leg changes.
 
 ## 4. Where `XRPPayment` diverged from expectation
 
@@ -160,6 +203,25 @@ that matters most for the architecture:
 `DeliverMax` in `tx_json`. Reading only `Amount` yields `intendedReceivedAmount = 0`, a wrong
 MIC, and the exact silent failure described in (a). `buildResponse.ts` accepts both, and
 `executor/test/buildResponse.test.ts` has a regression for it.
+
+**e. Three more, found only by running it live.** All were silent or misleading failures,
+which is the point of running rather than reasoning:
+
+- `Relay` has no `firstVotingRoundStartTs()` or `votingEpochDurationSeconds()`. Those were a
+  plausible guess and both revert *with no revert data*, so ethers reports only "missing
+  revert data" against a bare address. Only `getVotingRoundId(uint256)` is in `IRelay`.
+- The DA Layer's `proof-by-request-round-raw` returns `{proof, response_hex,
+  attestation_type}` — `response_hex` being `abi.encode(Response)`, not a JSON response
+  object. That is what "raw" means, and it is not documented in the endpoint name. Decoding
+  it with our own `RESPONSE_ABI` turned out to be a bonus: it is one more independent check
+  that the transcription from `IXRPPayment.sol` is correct.
+- An extra pair of parentheses around the proof tuple in an ethers ABI string fails only at
+  call time, with `array is wrong length`, pointing nowhere near the actual mistake.
+
+**f. FAssets FXRP transfers can revert transiently.** Transferring the freshly minted FXRP
+immediately after `executeMinting` reverted with no reason string, while the identical call
+simulated and then succeeded moments later. Worth knowing before building a funding flow
+that assumes mint-then-transfer is atomic from the caller's point of view.
 
 **The outcome that matters:** `fdc/buildResponse.ts` reconstructs the whole attestation
 response from ledger data alone, and its MIC matches Flare's. The verifier is a test oracle
@@ -256,22 +318,26 @@ nothing can decode.
 metadata made it drift on unrelated edits. memokit builds with `bytecode_hash = "none"`,
 which removes the cause, and pins `keccak256(creationCode)` =
 `0x6aecc412c9302a9f3d2e48b1104b85786f85f9d2ac2a95efd97d1bcbdec02944` in
-`test/AccountDerivation.t.sol`. Freezing to a literal remains a pre-mainnet task. Note that
-facet fix (b) above will change this hash — do it before any address is relied on.
+`test/AccountDerivation.t.sol`. The beacon split changed this hash once, deliberately and
+before any address was recorded; it is settled now. Freezing to a literal remains a
+pre-mainnet task.
 
 ---
 
 ## Open items for Phase 2
 
-1. **Run the acceptance trace.** Needs a funded Coston2 EOA. Planned as two runs: first
-   against a mock token and vault deployed by `scripts/DeployMocks.s.sol`, which exercises
-   every part that can fail against real Flare infrastructure, then against a live Coston2
-   vault once FTestXRP is in the account.
-2. **Rename `isTransactionIdUsed`** before anything consumes it — the last known drop-in
+1. **Rename `isTransactionIdUsed`** before anything consumes it — the last known drop-in
    collision, and free to fix today.
-3. **Re-check the zeroed voting round** in the MIC if a non-zero round ever appears in a
+2. **Re-check the zeroed voting round** in the MIC if a non-zero round ever appears in a
    response.
-4. **Freeze the proxy creation code** to a hex literal now that the beacon split has settled
+3. **Freeze the proxy creation code** to a hex literal now that the beacon split has settled
    the derivation.
-5. **Self-host a DA Layer.** 20 req/min is a low ceiling for more than one concurrent user.
-6. **Measure round-close → proof-served**, the one latency leg still open.
+4. **Self-host a DA Layer.** 20 req/min is a low ceiling for more than one concurrent user,
+   and the measured 140 s proof leg means each pending instruction polls many times.
+5. **Consider an ERC-1363 receiver hook on `PersonalAccount`.** Flare's own account
+   implements `onTransferReceived`; ours does not. Plain ERC-20 transfers into the account
+   work — the live trace depended on one — but any counterparty using `transferAndCall`
+   would fail.
+6. **Reconsider whether the executor fee should be a separate token.** The live run used a
+   zero fee. Paying in the fee token means the account must hold two assets, which is
+   friction the positioning does not need.

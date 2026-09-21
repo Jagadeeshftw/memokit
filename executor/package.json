@@ -10,7 +10,8 @@
     "measure:latency": "tsx src/measure/latency.ts",
     "verify:mic": "tsx src/measure/micOracle.ts",
     "test": "vitest run",
-    "e2e": "tsx src/e2e.ts"
+    "e2e": "tsx src/e2e.ts",
+    "fund": "tsx src/fundWithFxrp.ts"
   },
   "dependencies": {
     "ethers": "^6.13.4",
