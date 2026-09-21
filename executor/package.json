@@ -1,0 +1,20 @@
+{
+  "name": "@memokit/executor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "measure:da": "tsx src/measure/daLayer.ts",
+    "measure:latency": "tsx src/measure/latency.ts",
+    "verify:mic": "tsx src/measure/micOracle.ts",
+    "test": "vitest run",
+    "e2e": "tsx src/e2e.ts"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "xrpl": "^4.1.0",
+    "@memokit/sdk": "0.1.0"
+  }
+}

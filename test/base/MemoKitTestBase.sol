@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+
+import {Test} from "forge-std/Test.sol";
+import {IXRPPayment} from "flare-periphery/coston2/IXRPPayment.sol";
+
+import {Diamond} from "../../contracts/diamond/Diamond.sol";
+import {DiamondCutFacet} from "../../contracts/diamond/DiamondCutFacet.sol";
+import {DiamondLoupeFacet} from "../../contracts/diamond/DiamondLoupeFacet.sol";
+import {IDiamondCut} from "../../contracts/diamond/IDiamondCut.sol";
+
+import {AccountsFacet} from "../../contracts/facets/AccountsFacet.sol";
+import {AdminFacet} from "../../contracts/facets/AdminFacet.sol";
+import {MemoControllerFacet} from "../../contracts/facets/MemoControllerFacet.sol";
+import {FacetSelectors} from "../../scripts/lib/FacetSelectors.sol";
+
+import {PersonalAccount} from "../../contracts/accounts/PersonalAccount.sol";
+import {Accounts} from "../../contracts/libraries/Accounts.sol";
+import {IMemoController} from "../../contracts/interfaces/IMemoController.sol";
+import {IPersonalAccount} from "../../contracts/interfaces/IPersonalAccount.sol";
+
+import {MockContractRegistry} from "../../contracts/mocks/MockContractRegistry.sol";
+import {MockERC20} from "../../contracts/mocks/MockERC20.sol";
+import {MockERC4626} from "../../contracts/mocks/MockERC4626.sol";
+import {MockFdcVerification} from "../../contracts/mocks/MockFdcVerification.sol";
+import {MockSingletonFactory} from "../../contracts/mocks/MockSingletonFactory.sol";
+
+/// @notice Shared setup: a fully cut memokit diamond, mocked Flare infrastructure, a vault.
+abstract contract MemoKitTestBase is Test {
+    address internal constant FLARE_CONTRACT_REGISTRY = 0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019;
+
+    address internal owner = makeAddr("owner");
+    address internal pauser = makeAddr("pauser");
+    address internal executor = makeAddr("executor");
+
+    /// @dev Real Coston2 values, so the tests read like the deployment.
+    string internal constant RECEIVING = "rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq";
+    string internal constant XRPL_SENDER = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
+    bytes32 internal constant SOURCE_ID = bytes32("testXRP");
+    uint64 internal constant VALIDITY_SECONDS = 86_400;
+    uint64 internal constant TIMELOCK_SECONDS = 3_600;
+
+    Diamond internal diamond;
+    MemoControllerFacet internal controller;
+    AdminFacet internal admin;
+    AccountsFacet internal accounts;
+    DiamondLoupeFacet internal loupe;
+
+    MockFdcVerification internal fdc;
+    MockContractRegistry internal registry;
+    MockERC20 internal fxrp;
+    MockERC4626 internal vault;
+
+    function setUp() public virtual {
+        _installFlareInfrastructure();
+
+        DiamondCutFacet cutFacet = new DiamondCutFacet();
+        diamond = new Diamond(owner, address(cutFacet));
+
+        MemoControllerFacet controllerImpl = new MemoControllerFacet();
+        AdminFacet adminImpl = new AdminFacet();
+        AccountsFacet accountsImpl = new AccountsFacet();
+        DiamondLoupeFacet loupeImpl = new DiamondLoupeFacet();
+
+        IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](4);
+        cuts[0] = _cut(address(controllerImpl), _controllerSelectors());
+        cuts[1] = _cut(address(adminImpl), _adminSelectors());
+        cuts[2] = _cut(address(accountsImpl), _accountsSelectors());
+        cuts[3] = _cut(address(loupeImpl), _loupeSelectors());
+
+        vm.prank(owner);
+        IDiamondCut(address(diamond)).diamondCut(cuts, address(0), "");
+
+        controller = MemoControllerFacet(payable(address(diamond)));
+        admin = AdminFacet(address(diamond));
+        accounts = AccountsFacet(address(diamond));
+        loupe = DiamondLoupeFacet(address(diamond));
+
+        fxrp = new MockERC20("Test FXRP", "FTestXRP", 6);
+        vault = new MockERC4626(fxrp, "TESTearnXRP", "TESTearnXRP");
+
+        string[] memory receiving = new string[](1);
+        receiving[0] = RECEIVING;
+        address[] memory pausers = new address[](1);
+        pausers[0] = pauser;
+
+        // Deploy before the prank: a CREATE inside the argument list would consume it.
+        address accountImpl = address(new PersonalAccount());
+
+        vm.prank(owner);
+        admin.initializeMemoKit(
+            AdminFacet.InitParams({
+                owner: owner,
+                accountImplementation: accountImpl,
+                sourceId: SOURCE_ID,
+                validityDurationSeconds: VALIDITY_SECONDS,
+                timelockDurationSeconds: TIMELOCK_SECONDS,
+                feeToken: address(fxrp),
+                receivingAddresses: receiving,
+                pausers: pausers,
+                unpausers: pausers
+            })
+        );
+
+        // XRPL block timestamps below are absolute; start the chain clock somewhere sane.
+        vm.warp(1_750_000_000);
+    }
+
+    function _installFlareInfrastructure() private {
+        registry = new MockContractRegistry();
+        fdc = new MockFdcVerification();
+        registry.setContractAddress("FdcVerification", address(fdc));
+        vm.etch(FLARE_CONTRACT_REGISTRY, address(registry).code);
+        // Re-point storage on the etched copy.
+        MockContractRegistry(FLARE_CONTRACT_REGISTRY).setContractAddress("FdcVerification", address(fdc));
+
+        vm.etch(Accounts.SINGLETON_FACTORY, address(new MockSingletonFactory()).code);
+    }
+
+    // --- cut helpers --------------------------------------------------------------------
+
+    function _cut(address _facet, bytes4[] memory _selectors)
+        internal
+        pure
+        returns (IDiamondCut.FacetCut memory)
+    {
+        return IDiamondCut.FacetCut({
+            facetAddress: _facet,
+            action: IDiamondCut.FacetCutAction.Add,
+            functionSelectors: _selectors
+        });
+    }
+
+    // Delegated to the shared library the deploy script uses, so tests exercise exactly
+    // the selector set that gets deployed.
+    function _controllerSelectors() internal pure returns (bytes4[] memory) {
+        return FacetSelectors.controller();
+    }
+
+    function _accountsSelectors() internal pure returns (bytes4[] memory) {
+        return FacetSelectors.accounts();
+    }
+
+    function _loupeSelectors() internal pure returns (bytes4[] memory) {
+        return FacetSelectors.loupe();
+    }
+
+    function _adminSelectors() internal pure returns (bytes4[] memory) {
+        return FacetSelectors.admin();
+    }
+
+    // --- memo builders ------------------------------------------------------------------
+
+    function _header(uint8 _opcode, uint8 _walletId, uint64 _fee) internal pure returns (bytes memory) {
+        return abi.encodePacked(_opcode, _walletId, _fee);
+    }
+
+    function _instruction(address _sender, uint256 _nonce, IPersonalAccount.Call[] memory _calls)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_sender, _nonce, _calls);
+    }
+
+    function _oneCall(address _target, uint256 _value, bytes memory _data)
+        internal
+        pure
+        returns (IPersonalAccount.Call[] memory _calls)
+    {
+        _calls = new IPersonalAccount.Call[](1);
+        _calls[0] = IPersonalAccount.Call({target: _target, value: _value, data: _data});
+    }
+
+    // --- proof builder ------------------------------------------------------------------
+
+    struct ProofOverrides {
+        bytes32 sourceId;
+        uint8 status;
+        uint64 blockTimestamp;
+        bool hasDestinationTag;
+        uint256 destinationTag;
+        string receivingAddress;
+        string sourceAddress;
+        bytes32 sourceAddressHashOverride;
+        bool useSourceAddressHashOverride;
+        bool hasMemoData;
+    }
+
+    function _defaults() internal view returns (ProofOverrides memory _o) {
+        _o.sourceId = SOURCE_ID;
+        _o.status = 0;
+        _o.blockTimestamp = uint64(block.timestamp);
+        _o.hasDestinationTag = false;
+        _o.destinationTag = 0;
+        _o.receivingAddress = RECEIVING;
+        _o.sourceAddress = XRPL_SENDER;
+        _o.useSourceAddressHashOverride = false;
+        _o.hasMemoData = true;
+    }
+
+    function _proof(bytes32 _transactionId, bytes memory _memo)
+        internal
+        view
+        returns (IXRPPayment.Proof memory)
+    {
+        return _proofWith(_transactionId, _memo, _defaults());
+    }
+
+    function _proofWith(bytes32 _transactionId, bytes memory _memo, ProofOverrides memory _o)
+        internal
+        pure
+        returns (IXRPPayment.Proof memory _p)
+    {
+        _p.merkleProof = new bytes32[](0);
+        _p.data.attestationType = bytes32("XRPPayment");
+        _p.data.sourceId = _o.sourceId;
+        _p.data.votingRound = 1;
+        _p.data.lowestUsedTimestamp = _o.blockTimestamp;
+        _p.data.requestBody.transactionId = _transactionId;
+        _p.data.requestBody.proofOwner = address(0);
+
+        _p.data.responseBody.blockNumber = 1;
+        _p.data.responseBody.blockTimestamp = _o.blockTimestamp;
+        _p.data.responseBody.sourceAddress = _o.sourceAddress;
+        _p.data.responseBody.sourceAddressHash = _o.useSourceAddressHashOverride
+            ? _o.sourceAddressHashOverride
+            : keccak256(bytes(_o.sourceAddress));
+        _p.data.responseBody.receivingAddressHash = keccak256(bytes(_o.receivingAddress));
+        _p.data.responseBody.intendedReceivingAddressHash = _p.data.responseBody.receivingAddressHash;
+        _p.data.responseBody.spentAmount = 1_000_000;
+        _p.data.responseBody.intendedSpentAmount = 1_000_000;
+        _p.data.responseBody.receivedAmount = 1_000_000;
+        _p.data.responseBody.intendedReceivedAmount = 1_000_000;
+        _p.data.responseBody.hasMemoData = _o.hasMemoData;
+        _p.data.responseBody.firstMemoData = _memo;
+        _p.data.responseBody.hasDestinationTag = _o.hasDestinationTag;
+        _p.data.responseBody.destinationTag = _o.destinationTag;
+        _p.data.responseBody.status = _o.status;
+    }
+
+    // --- convenience --------------------------------------------------------------------
+
+    function _accountFor(string memory _xrplOwner) internal view returns (address) {
+        return accounts.computeAccountAddress(_xrplOwner);
+    }
+
+    function _fund(address _account, uint256 _amount) internal {
+        fxrp.mint(_account, _amount);
+    }
+}

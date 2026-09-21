@@ -1,0 +1,28 @@
+{
+  "name": "memokit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "XRPL-originated arbitrary calls on Flare, acting on assets a personal account already holds. No FAssets mint in the path.",
+  "workspaces": [
+    "sdk",
+    "executor"
+  ],
+  "scripts": {
+    "build": "npm run build -w @memokit/sdk && npm run build -w @memokit/executor",
+    "test": "npm run test -w @memokit/sdk && npm run test -w @memokit/executor",
+    "fixtures": "npm run fixtures -w @memokit/sdk",
+    "forge:build": "forge build",
+    "forge:test": "forge test -vv"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "fast-check": "^3.23.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.5.0",
+    "@flarenetwork/flare-periphery-contracts": "0.1.53"
+  }
+}

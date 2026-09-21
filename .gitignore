@@ -1,0 +1,13 @@
+node_modules/
+out/
+cache/
+artifacts/
+lib/
+.env
+.env.local
+*.log
+coverage/
+lcov.info
+dist/
+broadcast/
+.DS_Store
