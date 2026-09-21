@@ -12,6 +12,7 @@ import {AccountsFacet} from "../contracts/facets/AccountsFacet.sol";
 import {AdminFacet} from "../contracts/facets/AdminFacet.sol";
 import {MemoControllerFacet} from "../contracts/facets/MemoControllerFacet.sol";
 import {PersonalAccount} from "../contracts/accounts/PersonalAccount.sol";
+import {PersonalAccountBeacon} from "../contracts/accounts/PersonalAccountBeacon.sol";
 import {FacetSelectors} from "./lib/FacetSelectors.sol";
 
 /**
@@ -40,6 +41,7 @@ contract DeployMemoKit is Script {
         address adminFacet;
         address accountsFacet;
         address personalAccountImplementation;
+        address personalAccountBeacon;
     }
 
     struct Config {
@@ -81,6 +83,8 @@ contract DeployMemoKit is Script {
         _d.accountsFacet = address(new AccountsFacet());
         _d.diamondLoupeFacet = address(new DiamondLoupeFacet());
         _d.personalAccountImplementation = address(new PersonalAccount());
+        _d.personalAccountBeacon =
+            address(new PersonalAccountBeacon(_d.diamond, _d.personalAccountImplementation));
     }
 
     function _cut(Deployed memory _d) internal {
@@ -101,7 +105,7 @@ contract DeployMemoKit is Script {
         AdminFacet(_d.diamond).initializeMemoKit(
             AdminFacet.InitParams({
                 owner: _c.owner,
-                accountImplementation: _d.personalAccountImplementation,
+                accountBeacon: _d.personalAccountBeacon,
                 sourceId: _c.sourceId,
                 validityDurationSeconds: _c.validitySeconds,
                 timelockDurationSeconds: _c.timelockSeconds,
@@ -121,6 +125,7 @@ contract DeployMemoKit is Script {
         console.log("  AdminFacet         ", _d.adminFacet);
         console.log("  AccountsFacet      ", _d.accountsFacet);
         console.log("  PersonalAccount    ", _d.personalAccountImplementation);
+        console.log("  AccountBeacon      ", _d.personalAccountBeacon);
         console.log("owner                ", _c.owner);
         console.log("fee token            ", _c.feeToken);
         console.log("receiving address    ", _c.receivingAddress);
@@ -139,6 +144,7 @@ contract DeployMemoKit is Script {
             '",\n  "adminFacet": "', vm.toString(_d.adminFacet),
             '",\n  "accountsFacet": "', vm.toString(_d.accountsFacet),
             '",\n  "personalAccountImplementation": "', vm.toString(_d.personalAccountImplementation),
+            '",\n  "personalAccountBeacon": "', vm.toString(_d.personalAccountBeacon),
             '",\n  "owner": "', vm.toString(_c.owner),
             '",\n  "feeToken": "', vm.toString(_c.feeToken),
             '",\n  "receivingAddress": "', _c.receivingAddress,

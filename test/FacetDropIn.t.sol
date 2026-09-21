@@ -7,6 +7,8 @@ import {MemoKitTestBase} from "./base/MemoKitTestBase.sol";
 import {IDiamondCut} from "../contracts/diamond/IDiamondCut.sol";
 import {MemoCodec} from "../contracts/libraries/MemoCodec.sol";
 import {MemoControllerFacet} from "../contracts/facets/MemoControllerFacet.sol";
+import {PersonalAccount} from "../contracts/accounts/PersonalAccount.sol";
+import {PersonalAccountBeacon} from "../contracts/accounts/PersonalAccountBeacon.sol";
 
 /**
  * @notice A host facet with a legacy, non-namespaced storage layout, writing straight to
@@ -143,5 +145,109 @@ contract FacetDropInTest is MemoKitTestBase {
 
     function _slot(string memory _name) private pure returns (bytes32) {
         return keccak256(abi.encode(uint256(keccak256(bytes(_name))) - 1)) & ~bytes32(uint256(0xff));
+    }
+}
+
+/**
+ * @title BeaconSeparationTest
+ * @notice Pins the fix for the `implementation()` collision found against Flare's live diamond.
+ *
+ * @dev Flare's `MasterAccountController` on Coston2 already answers `implementation()`
+ *      (`0x5c60da1b`), because it is its own account beacon. memokit used to do the same,
+ *      which meant its facets could never be cut into Flare's diamond without either
+ *      reverting on the cut or -- far worse -- silently pointing every memokit account at
+ *      Flare's `PersonalAccount`. Splitting the beacon into its own contract removes the
+ *      selector from memokit's facet surface entirely.
+ */
+contract BeaconSeparationTest is MemoKitTestBase {
+    /// @dev Selectors observed on the live Coston2 MasterAccountController, 2026-09-21.
+    bytes4 internal constant FLARE_IMPLEMENTATION = 0x5c60da1b; // implementation()
+    bytes4 internal constant FLARE_IS_TX_USED = 0x8e103030; // isTransactionIdUsed(bytes32)
+
+    function test_controllerNoLongerAnswersImplementation() public view {
+        assertEq(
+            loupe.facetAddress(FLARE_IMPLEMENTATION),
+            address(0),
+            "memokit must not claim implementation(); it belongs to the beacon"
+        );
+    }
+
+    function test_beaconIsASeparateContractFromTheController() public view {
+        address configured = accounts.accountBeacon();
+        assertEq(configured, address(beacon), "beacon recorded");
+        assertTrue(configured != address(diamond), "beacon must not be the diamond");
+        assertEq(beacon.controller(), address(diamond), "diamond drives the beacon");
+        assertEq(beacon.implementation(), admin.accountImplementation(), "views agree");
+    }
+
+    /**
+     * @dev The remaining known collision, recorded deliberately rather than fixed.
+     *      Cutting `MemoControllerFacet` into Flare's diamond today would revert on this
+     *      selector. The dangerous variant is cutting everything except it: callers would
+     *      then reach Flare's implementation reading Flare's replay set and get a confident
+     *      wrong answer about memokit state. Renaming it is a Phase 2 item.
+     */
+    function test_remainingKnownCollisionIsStillIsTransactionIdUsed() public view {
+        assertEq(
+            loupe.facetAddress(FLARE_IS_TX_USED),
+            address(controllerFacetAddress()),
+            "isTransactionIdUsed still lives on MemoControllerFacet and still collides"
+        );
+    }
+
+    function controllerFacetAddress() internal view returns (address) {
+        return loupe.facetAddress(MemoControllerFacet.execute.selector);
+    }
+
+    /// @dev One beacon write repoints every account, existing and future.
+    function test_beaconUpgradeRepointsExistingAccounts() public {
+        address account = _accountFor(XRPL_SENDER);
+        _fund(account, 10_000_000);
+
+        bytes memory payload = _instruction(
+            account, 0, _oneCall(address(fxrp), 0, abi.encodeCall(IERC20.transfer, (owner, 1_000)))
+        );
+        bytes memory memo =
+            abi.encodePacked(_header(MemoCodec.OP_EXEC_COMMIT, 1, uint64(0)), keccak256(payload));
+        vm.prank(executor);
+        controller.execute(_proof(bytes32(uint256(9)), memo), payload);
+        assertGt(account.code.length, 0, "account deployed");
+
+        address next = address(new PersonalAccountV2());
+
+        vm.startPrank(owner);
+        admin.setAccountImplementation(next);
+        vm.warp(block.timestamp + TIMELOCK_SECONDS);
+        admin.setAccountImplementation(next);
+        vm.stopPrank();
+
+        assertEq(beacon.implementation(), next, "beacon updated");
+        assertEq(PersonalAccountV2(payable(account)).version(), 2, "existing account repointed");
+    }
+
+    function test_onlyTheDiamondMayUpgradeTheBeacon() public {
+        address next = address(new PersonalAccountV2());
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                PersonalAccountBeacon.OnlyController.selector, owner, address(diamond)
+            )
+        );
+        beacon.setImplementation(next);
+    }
+
+    /// @dev The beacon is part of the CREATE2 init code, so it cannot be swapped after setup.
+    function test_beaconCannotBeReplacedAfterInitialisation() public {
+        assertTrue(accounts.accountBeacon() != address(0));
+        // No facet exposes a beacon setter; the only writer is `initializeMemoKit`, which
+        // is one-shot. Assert the selector genuinely does not exist on the diamond.
+        assertEq(loupe.facetAddress(bytes4(keccak256("setAccountBeacon(address)"))), address(0));
+    }
+}
+
+/// @notice A second implementation, used to observe a beacon upgrade taking effect.
+contract PersonalAccountV2 is PersonalAccount {
+    function version() external pure returns (uint256) {
+        return 2;
     }
 }

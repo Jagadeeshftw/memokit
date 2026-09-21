@@ -15,6 +15,7 @@ import {MemoControllerFacet} from "../../contracts/facets/MemoControllerFacet.so
 import {FacetSelectors} from "../../scripts/lib/FacetSelectors.sol";
 
 import {PersonalAccount} from "../../contracts/accounts/PersonalAccount.sol";
+import {PersonalAccountBeacon} from "../../contracts/accounts/PersonalAccountBeacon.sol";
 import {Accounts} from "../../contracts/libraries/Accounts.sol";
 import {IMemoController} from "../../contracts/interfaces/IMemoController.sol";
 import {IPersonalAccount} from "../../contracts/interfaces/IPersonalAccount.sol";
@@ -50,6 +51,7 @@ abstract contract MemoKitTestBase is Test {
     MockContractRegistry internal registry;
     MockERC20 internal fxrp;
     MockERC4626 internal vault;
+    PersonalAccountBeacon internal beacon;
 
     function setUp() public virtual {
         _installFlareInfrastructure();
@@ -85,13 +87,15 @@ abstract contract MemoKitTestBase is Test {
         pausers[0] = pauser;
 
         // Deploy before the prank: a CREATE inside the argument list would consume it.
-        address accountImpl = address(new PersonalAccount());
+        // The beacon is a standalone contract, not a facet, so the controller keeps
+        // `implementation()` off its own selector set -- see PersonalAccountBeacon.
+        beacon = new PersonalAccountBeacon(address(diamond), address(new PersonalAccount()));
 
         vm.prank(owner);
         admin.initializeMemoKit(
             AdminFacet.InitParams({
                 owner: owner,
-                accountImplementation: accountImpl,
+                accountBeacon: address(beacon),
                 sourceId: SOURCE_ID,
                 validityDurationSeconds: VALIDITY_SECONDS,
                 timelockDurationSeconds: TIMELOCK_SECONDS,

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Accounts} from "../libraries/Accounts.sol";
+import {PersonalAccountBeacon} from "../accounts/PersonalAccountBeacon.sol";
 import {Fees} from "../libraries/Fees.sol";
 import {Governance} from "../libraries/Governance.sol";
 import {Pause} from "../libraries/Pause.sol";
@@ -27,7 +28,7 @@ contract AdminFacet {
     /// @notice One-time setup parameters.
     struct InitParams {
         address owner;
-        address accountImplementation;
+        address accountBeacon;
         bytes32 sourceId;
         uint64 validityDurationSeconds;
         uint64 timelockDurationSeconds;
@@ -60,7 +61,7 @@ contract AdminFacet {
         governance.initialized = true;
 
         Governance.setOwner(_params.owner);
-        Accounts.setImplementation(_params.accountImplementation);
+        Accounts.setBeacon(_params.accountBeacon);
         Proofs.setSourceId(_params.sourceId);
         Proofs.setValidityDuration(_params.validityDurationSeconds);
         Fees.setFeeToken(_params.feeToken);
@@ -95,8 +96,10 @@ contract AdminFacet {
         Fees.setFeeToken(_feeToken);
     }
 
+    /// @dev Upgrades every account at once, via the beacon. The beacon address itself is
+    ///      fixed at initialisation because it is part of each account's CREATE2 init code.
     function setAccountImplementation(address _implementation) external timelocked {
-        Accounts.setImplementation(_implementation);
+        PersonalAccountBeacon(Accounts.getState().beacon).setImplementation(_implementation);
     }
 
     function setTimelockDuration(uint64 _durationSeconds) external timelocked {
@@ -171,8 +174,10 @@ contract AdminFacet {
         return Fees.feeToken();
     }
 
+    /// @dev The beacon address itself is exposed by `AccountsFacet`, not here: two facets
+    ///      declaring the same selector cannot be cut into one diamond.
     function accountImplementation() external view returns (address) {
-        return Accounts.getState().implementation;
+        return PersonalAccountBeacon(Accounts.getState().beacon).implementation();
     }
 
     function receivingAddresses() external view returns (string[] memory) {

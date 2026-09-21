@@ -32,7 +32,7 @@ contract GovernanceTest is MemoKitTestBase {
         admin.initializeMemoKit(
             AdminFacet.InitParams({
                 owner: owner,
-                accountImplementation: address(fxrp),
+                accountBeacon: address(beacon),
                 sourceId: SOURCE_ID,
                 validityDurationSeconds: 1,
                 timelockDurationSeconds: 1,

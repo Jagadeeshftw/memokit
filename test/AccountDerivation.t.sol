@@ -22,7 +22,7 @@ import {MemoCodec} from "../contracts/libraries/MemoCodec.sol";
 contract AccountDerivationTest is MemoKitTestBase {
     /// @dev solc 0.8.30, cancun, optimizer on / 200 runs, bytecode_hash = none.
     bytes32 internal constant PINNED_PROXY_CODE_HASH =
-        0x59953ab402ba5b2b9267d7273cd5a416e2a1caa5c273bff368d8a5d0360c4dd1;
+        0x6aecc412c9302a9f3d2e48b1104b85786f85f9d2ac2a95efd97d1bcbdec02944;
 
     function test_proxyCreationCodeHashIsPinned() public view {
         bytes32 actual = keccak256(type(PersonalAccountProxy).creationCode);

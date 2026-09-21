@@ -15,10 +15,10 @@ infrastructure on that date; the raw captures are in [`fixtures/`](fixtures/).
 | 1. Repo scaffold, periphery pinned | done — `@flarenetwork/flare-periphery-contracts@0.1.53` |
 | 2. Memo codec, fixtures, conformance, property tests | done — 35 TS + 11 Solidity conformance tests |
 | 3. Attestation client, offline MIC, DA Layer, measurements | done — **and the verifier is off the critical path, proven** |
-| 4. Contracts: controller, account, recovery | done — 68 Solidity tests |
+| 4. Contracts: controller, account, recovery | done — 74 Solidity tests |
 | 5. End-to-end on Coston2 + XRPL Testnet | **blocked** — needs a funded Coston2 EOA; see below |
 
-Test counts: `forge test` 68 passed; `npm test` 63 passed (35 sdk + 28 executor).
+Test counts: `forge test` 74 passed; `npm test` 63 passed (35 sdk + 28 executor).
 
 ---
 
@@ -43,15 +43,23 @@ npm run e2e -w @memokit/executor
 `fixtures/measurements/e2e-trace.json` with the XRPL hash, both Coston2 hashes, the vault
 share delta, and per-leg latency.
 
-**A second prerequisite, worth deciding before the run.** The instruction deposits into one
-of the live Coston2 vaults, whose asset is FTestXRP
-(`0x0b6A3645c240605887a5532109323A3E12273dc7`). The personal account must therefore hold
-FTestXRP *before* the instruction runs — that is the whole point of the positioning, and the
-script refuses to proceed otherwise with an explicit message. FTestXRP cannot be minted
-freely; acquiring it means running the FAssets mint once, out of band, into the account
-address (which `computeAccountAddress` gives you before any deployment). That mint is
-deliberately outside the instruction path and the trace records the balance before and after
-so the distinction is on the record.
+**The funding prerequisite, and the two-run plan.** The personal account must hold the
+vault's asset *before* the instruction runs — that is the whole point of the positioning,
+and `e2e.ts` refuses to proceed otherwise with an explicit message.
+
+The real target is one of the four funded Coston2 vaults, whose asset is FTestXRP
+(`0x0b6A3645c240605887a5532109323A3E12273dc7`), which cannot be minted freely: getting it
+into an account means running the FAssets mint once, out of band, into the account address
+(`computeAccountAddress` gives you that before anything is deployed). That mint sits
+deliberately outside the instruction path, and the trace records the balance before and
+after so the distinction is on the record.
+
+So the trace runs twice. First against a mock token and vault from
+`scripts/DeployMocks.s.sol`: every part that can actually fail — the XRPL payment, the
+offline request encoding, the attestation, the DA Layer poll, the on-chain proof
+verification, the dispatch — runs against real Flare infrastructure, and only the deposit
+target is synthetic. Then against a live vault once FTestXRP is in hand, with two addresses
+changed and nothing else.
 
 Everything else in the path is already exercised against live infrastructure: real XRPL
 Testnet payments were sent, indexed by Flare, and attested-in-shape during the MIC work.
@@ -163,42 +171,56 @@ between a user and their funds.
 The constraint holds — `MemoControllerFacet` has no constructor, no immutables, and only
 ERC-7201 namespaced storage, and `test/FacetDropIn.t.sol` proves it coexists with a host
 facet writing raw slots 0–2 in both directions. But cutting it into Flare's *actual* diamond
-hits three problems, found by diffing our selectors against the live Coston2
-`MasterAccountController` (74 selectors):
+turned up three problems, found by diffing our selectors against the live Coston2
+`MasterAccountController` (74 selectors). One was serious enough to fix inside this phase.
 
-**a. `isTransactionIdUsed(bytes32)` collides — and silently.** Flare's diamond already has
-`0x8e103030`. A cut including it reverts with `SelectorAlreadyExists`, which is the good
-case. The bad case is cutting everything *except* it: callers then reach Flare's
-implementation reading Flare's replay set, and get a confident wrong answer about memokit
-state. **Fix: rename it.** It is a view with no external consumers yet, so this is free now
-and expensive later.
+**a. `implementation()` collided, and it was architectural. Fixed.**
+
+Account proxies are beacon proxies, so whatever they name as beacon must answer
+`implementation()`. Both Flare and the first cut of memokit made the controller its own
+beacon — which puts `0x5c60da1b` on the controller. Flare's diamond already has it. Cutting
+memokit in would either revert on the cut, or, if that selector were simply omitted from the
+cut, silently point every memokit account at *Flare's* `PersonalAccount`, which has neither
+`executeUserOp` nor `payExecutorFee` in the shape memokit calls them. A wrong answer, not an
+error.
+
+Renaming cannot help, because `IBeacon.implementation()` is fixed by the proxy. The fix was
+to stop using the controller as the beacon: `PersonalAccountBeacon` is now a standalone
+contract, its address lives in memokit's namespaced storage, and `AccountsFacet` no longer
+declares `implementation()` at all. `test/FacetDropIn.t.sol::BeaconSeparationTest` asserts
+the diamond does not route `0x5c60da1b`, that the beacon is a different address from the
+diamond, that only the diamond can upgrade it, and that one beacon write repoints existing
+accounts.
+
+This changed the account derivation from `(controller, owner)` to `(beacon, controller,
+owner)` and therefore every account address — which is exactly why it was worth doing before
+any address was recorded. The pinned proxy code hash was updated in the same change.
+
+**b. `isTransactionIdUsed(bytes32)` still collides. Deliberately deferred.**
+
+Flare's diamond already has `0x8e103030`. A cut including it reverts with
+`SelectorAlreadyExists`, which is the safe failure. The unsafe one is cutting everything
+*except* it: callers then reach Flare's implementation reading Flare's replay set and get a
+confident wrong answer about memokit state. Renaming is free today — it is a view with no
+external consumers — and expensive once anything depends on it. It is carried as a Phase 2
+item rather than folded in here. `BeaconSeparationTest` pins the collision so it cannot be
+forgotten.
 
 Of `MemoControllerFacet`'s five selectors, only that one collides. `execute`, `nonceOf`,
 `isIgnored` and `replacementFeeOf` are clear.
 
-**b. `implementation()` collides, and this one is architectural.** Account proxies are beacon
-proxies whose beacon is the controller, so the controller must answer `implementation()`.
-Flare's diamond already answers it — with *their* `PersonalAccount`. Cut memokit into their
-diamond and every memokit account would delegate to Flare's implementation, which does not
-have our `executeUserOp`/`payExecutorFee` surface.
+**c. Ownership and pause duplicate the host's. Expected, not a defect.**
 
-This is not fixable by renaming, because `IBeacon.implementation()` is fixed by the proxy.
-The fix is to stop using the controller as the beacon: give accounts a dedicated beacon
-contract and hold its address in memokit's namespaced storage. That also removes
-`AccountsFacet` from the set of facets a host has to accept. Worth doing before anything
-depends on account addresses, since it changes the proxy init code and therefore every
-derived address.
+`owner()`, `pause()` and `unpause()` all collide with Flare's. This is inherent — a host
+diamond has its own governance and would drive memokit's namespaced config through it — but
+it means **`AdminFacet` is not part of the drop-in unit**. Only `MemoControllerFacet` (after
+fix b) and `AccountsFacet` are. Better to state that plainly than to imply "the facets are
+drop-in" and let someone discover it during a cut.
 
-**c. Ownership and pause duplicate the host's.** `owner()`, `pause()` and `unpause()` all
-collide. This is expected rather than wrong — a host diamond has its own governance and would
-drive memokit's namespaced config through it — but it means **`AdminFacet` is not part of the
-drop-in unit.** Only `MemoControllerFacet` (after fix a) and the account machinery (after fix
-b) are. That should be stated plainly rather than implied by "the facets are drop-in".
-
-**d. A smaller one:** `Accounts.initCode` puts `address(this)` in the proxy init code, so an
-account's address depends on which diamond created it. Correct, and deliberate — we do not
-want Flare's diamond as our beacon — but it means the same XRPL address maps to a different
-account in a host deployment than in ours. Fix (b) makes this explicit rather than incidental.
+**d. A smaller one, now explicit rather than incidental.** The account address depends on
+which diamond and which beacon created it, so the same XRPL address maps to a different
+account in a host deployment than in ours. That is intended — we do not want Flare's diamond
+as our beacon — but it does mean a user can hold balances under both protocols.
 
 ---
 
@@ -233,7 +255,7 @@ nothing can decode.
 **Account derivation.** Flare froze their proxy creation code as a hex literal because CBOR
 metadata made it drift on unrelated edits. memokit builds with `bytecode_hash = "none"`,
 which removes the cause, and pins `keccak256(creationCode)` =
-`0x59953ab402ba5b2b9267d7273cd5a416e2a1caa5c273bff368d8a5d0360c4dd1` in
+`0x6aecc412c9302a9f3d2e48b1104b85786f85f9d2ac2a95efd97d1bcbdec02944` in
 `test/AccountDerivation.t.sol`. Freezing to a literal remains a pre-mainnet task. Note that
 facet fix (b) above will change this hash — do it before any address is relied on.
 
@@ -241,11 +263,15 @@ facet fix (b) above will change this hash — do it before any address is relied
 
 ## Open items for Phase 2
 
-1. **Run the acceptance trace.** Needs a funded Coston2 EOA and FTestXRP in the account.
-2. **Rename `isTransactionIdUsed`** before anything consumes it.
-3. **Move the beacon off the controller** — the one real blocker on the A2 drop-in path, and
-   it changes every account address, so it is cheapest now.
-4. **Re-check the zeroed voting round** in the MIC if a non-zero round ever appears.
-5. **Freeze the proxy creation code** to a hex literal, after (3).
-6. **Self-host a DA Layer.** 20 req/min is a low ceiling for more than one concurrent user.
-7. **Measure round-close → proof-served**, the one latency leg still open.
+1. **Run the acceptance trace.** Needs a funded Coston2 EOA. Planned as two runs: first
+   against a mock token and vault deployed by `scripts/DeployMocks.s.sol`, which exercises
+   every part that can fail against real Flare infrastructure, then against a live Coston2
+   vault once FTestXRP is in the account.
+2. **Rename `isTransactionIdUsed`** before anything consumes it — the last known drop-in
+   collision, and free to fix today.
+3. **Re-check the zeroed voting round** in the MIC if a non-zero round ever appears in a
+   response.
+4. **Freeze the proxy creation code** to a hex literal now that the beacon split has settled
+   the derivation.
+5. **Self-host a DA Layer.** 20 req/min is a low ceiling for more than one concurrent user.
+6. **Measure round-close → proof-served**, the one latency leg still open.

@@ -55,7 +55,7 @@ receiving XRPL address disambiguates which protocol a memo is addressed to.
 ```bash
 npm install
 forge build
-forge test          # 68 Solidity tests
+forge test          # 74 Solidity tests
 npm test            # 63 TypeScript tests
 npm run fixtures    # regenerate golden wire vectors
 ```

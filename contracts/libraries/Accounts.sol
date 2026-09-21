@@ -11,12 +11,16 @@ import {PersonalAccountProxy} from "../accounts/PersonalAccountProxy.sol";
  * @notice Deterministic per-XRPL-address account derivation and deployment.
  *
  * @dev Same construction Flare Smart Accounts uses: CREATE2 through the EIP-2470 singleton
- *      factory with a zero salt, where the XRPL owner string is part of the init code. The
- *      controller doubles as the beacon for the account proxies.
+ *      factory with a zero salt, where the XRPL owner string is part of the init code.
+ *      Unlike Flare, the beacon is a separate contract rather than the controller itself.
  *
  *      The controller address is inside the init code, so a memokit account and an FSA account
- *      for the same XRPL address are different addresses. That is intended -- we do not want
- *      Flare's diamond as our beacon -- but it does mean a user can hold balances in both.
+ *      for the same XRPL address are different addresses. That is intended, but it does mean
+ *      a user can hold balances in both.
+ *
+ *      The account address is a function of (beacon, controller, XRPL owner). Flare instead
+ *      derives from (controller, XRPL owner) and makes the controller its own beacon; that
+ *      is what forces `implementation()` onto the controller and breaks the drop-in path.
  *
  *      Flare freezes the proxy creation code as a hex constant so the derivation cannot drift.
  *      memokit instead builds with `bytecode_hash = "none"`, which removes the CBOR metadata
@@ -26,8 +30,10 @@ import {PersonalAccountProxy} from "../accounts/PersonalAccountProxy.sol";
 library Accounts {
     /// @custom:storage-location erc7201:memokit.Accounts.State
     struct State {
-        /// @notice Implementation that every account proxy points at via the beacon.
-        address implementation;
+        /// @notice Beacon every account proxy reads its implementation from.
+        /// @dev Part of the CREATE2 init code, so it is fixed at initialisation: replacing
+        ///      it would move every account address. Upgrades go through the beacon itself.
+        address beacon;
         /// @notice Cache of XRPL owner string to deployed account.
         mapping(string xrplOwner => address account) accounts;
     }
@@ -39,21 +45,27 @@ library Accounts {
     address internal constant SINGLETON_FACTORY = 0xce0042B868300000d44A59004Da54A005ffdcf9f;
 
     event AccountCreated(address indexed account, string xrplOwner);
-    event ImplementationSet(address indexed implementation);
+    event BeaconSet(address indexed beacon);
 
-    error InvalidImplementation(address implementation);
+    error InvalidBeacon(address beacon);
+    error BeaconAlreadySet(address beacon);
     error AccountNotDeployed(address expected);
 
-    function setImplementation(address _implementation) internal {
-        require(_implementation.code.length > 0, InvalidImplementation(_implementation));
-        getState().implementation = _implementation;
-        emit ImplementationSet(_implementation);
+    /// @dev Settable once. See the note on {State.beacon}.
+    function setBeacon(address _beacon) internal {
+        State storage state = getState();
+        require(state.beacon == address(0), BeaconAlreadySet(state.beacon));
+        require(_beacon.code.length > 0, InvalidBeacon(_beacon));
+        state.beacon = _beacon;
+        emit BeaconSet(_beacon);
     }
 
     /// @notice Init code for the account proxy owned by `_xrplOwner`.
+    /// @dev `address(this)` resolves to the diamond, because facets run by delegatecall.
     function initCode(string memory _xrplOwner) internal view returns (bytes memory) {
         return abi.encodePacked(
-            type(PersonalAccountProxy).creationCode, abi.encode(address(this), _xrplOwner)
+            type(PersonalAccountProxy).creationCode,
+            abi.encode(getState().beacon, address(this), _xrplOwner)
         );
     }
 
