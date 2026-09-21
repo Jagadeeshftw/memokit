@@ -1,0 +1,252 @@
+{
+  "network": "coston2",
+  "chainId": 114,
+  "controller": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
+  "blockNumber": 35633008,
+  "blockTimestamp": 1789962722,
+  "source": "IDiamondLoupe.facets() at blockNumber",
+  "facetCount": 18,
+  "selectorCount": 74,
+  "facets": [
+    {
+      "address": "0x0B2D8eD2794a8213a32de8f4Cca9e53fC17567cf",
+      "selectors": [
+        "0x11996f44",
+        "0x1c3c0ea8",
+        "0xebb57238"
+      ]
+    },
+    {
+      "address": "0x11E943ec6F2FA0481d3bDb5651478121C39a778b",
+      "selectors": [
+        "0x8da5cb5b",
+        "0xf2fde38b"
+      ]
+    },
+    {
+      "address": "0x1C56F0c852ea0db76ca329Ab12d5D3BeF1c89B6d",
+      "selectors": [
+        "0xf36d999b"
+      ]
+    },
+    {
+      "address": "0x2054188F6d309923EFb247E863eBc5EDC0B183EB",
+      "selectors": [
+        "0x2d0335ab",
+        "0x61119302",
+        "0x8d32d9fd",
+        "0x8e103030"
+      ]
+    },
+    {
+      "address": "0x32cf6C232b26CeecDBbfD15B2B6ae6759d2c4dd9",
+      "selectors": [
+        "0x1f931c1c"
+      ]
+    },
+    {
+      "address": "0x396a741cCDB1cd285A0f9d480b589A1289F70e84",
+      "selectors": [
+        "0x231e721f",
+        "0x5b4b6aba",
+        "0x633babe4"
+      ]
+    },
+    {
+      "address": "0x401dBEcb1cAf61b4600D3D98b967c8435A1F716d",
+      "selectors": [
+        "0x08f36fa9",
+        "0x47f5f549",
+        "0x5bfd5bed",
+        "0xa95d67a0",
+        "0xc12ed1cd",
+        "0xc414a503",
+        "0xcf46f794",
+        "0xeaac2917",
+        "0xf7cce18e"
+      ]
+    },
+    {
+      "address": "0x5D8EaA1723cAcD82133025a1C67096c2DbB9a7db",
+      "selectors": [
+        "0x59902e24",
+        "0xd105d49a",
+        "0xf9b2f344"
+      ]
+    },
+    {
+      "address": "0x766150cff70161D1a5084F70F1f670DC1aAe4d4d",
+      "selectors": [
+        "0x3f4ba83a",
+        "0x46fbf68e",
+        "0x7a64ba49",
+        "0x8456cb59",
+        "0x9ddc3f5c",
+        "0xa036e799",
+        "0xa20c4e83",
+        "0xa6cc8d40",
+        "0xb187bd26",
+        "0xbc2634db",
+        "0xe79b7a51"
+      ]
+    },
+    {
+      "address": "0x7889a8Bd5B02190C051F4Eb64e82c6b4C6618755",
+      "selectors": [
+        "0x22c6b8ce",
+        "0x791bf633",
+        "0x9c8ccb34",
+        "0xac17520a",
+        "0xcc975fb8"
+      ]
+    },
+    {
+      "address": "0x7e5F45660bf028E3F6E7E3BB378625EEe92de1bb",
+      "selectors": [
+        "0x60cc026c",
+        "0x76a940e5",
+        "0xabcbbe18"
+      ]
+    },
+    {
+      "address": "0x8F8Bd315E240D674520C8Be1B3338487924f712b",
+      "selectors": [
+        "0x5c60da1b",
+        "0xd09318d4",
+        "0xd2ea87ef",
+        "0xe6f210aa"
+      ]
+    },
+    {
+      "address": "0x908EA6a57f2A83514567b7F0FE6DE46688cA002c",
+      "selectors": [
+        "0x01ffc9a7",
+        "0x52ef6b2c",
+        "0x7a0ed627",
+        "0xadfca15e",
+        "0xcdffacc6"
+      ]
+    },
+    {
+      "address": "0xa0946B655c1d919D05C8e26d21Cc1Cdc0c0133DB",
+      "selectors": [
+        "0x150fea09",
+        "0x1f9da642",
+        "0xb071614b",
+        "0xf1dd663e",
+        "0xf485a005"
+      ]
+    },
+    {
+      "address": "0xbcE1972De5d1598a948A36186eCeBFD4690F3a5C",
+      "selectors": [
+        "0x08ad600e",
+        "0x334ed727",
+        "0x5e07a6e6",
+        "0x8220ef5b",
+        "0xc84aae17"
+      ]
+    },
+    {
+      "address": "0xCbFCfe037D0dCa671064299F6c1f0823062FD27D",
+      "selectors": [
+        "0x44d00f82",
+        "0x5cd2a4bd"
+      ]
+    },
+    {
+      "address": "0xEAA885fDa7Bf285101d92F6dEc0622E1967F5fa5",
+      "selectors": [
+        "0x1add812b",
+        "0x6ac2d568",
+        "0x71110cc8",
+        "0xa01b2757"
+      ]
+    },
+    {
+      "address": "0xECde53e357911c436511570FC9D4a3ff5304f6A5",
+      "selectors": [
+        "0x7468497f",
+        "0xc6dd7267",
+        "0xe62be87c",
+        "0xf882595b"
+      ]
+    }
+  ],
+  "selectors": [
+    "0x01ffc9a7",
+    "0x08ad600e",
+    "0x08f36fa9",
+    "0x11996f44",
+    "0x150fea09",
+    "0x1add812b",
+    "0x1c3c0ea8",
+    "0x1f931c1c",
+    "0x1f9da642",
+    "0x22c6b8ce",
+    "0x231e721f",
+    "0x2d0335ab",
+    "0x334ed727",
+    "0x3f4ba83a",
+    "0x44d00f82",
+    "0x46fbf68e",
+    "0x47f5f549",
+    "0x52ef6b2c",
+    "0x59902e24",
+    "0x5b4b6aba",
+    "0x5bfd5bed",
+    "0x5c60da1b",
+    "0x5cd2a4bd",
+    "0x5e07a6e6",
+    "0x60cc026c",
+    "0x61119302",
+    "0x633babe4",
+    "0x6ac2d568",
+    "0x71110cc8",
+    "0x7468497f",
+    "0x76a940e5",
+    "0x791bf633",
+    "0x7a0ed627",
+    "0x7a64ba49",
+    "0x8220ef5b",
+    "0x8456cb59",
+    "0x8d32d9fd",
+    "0x8da5cb5b",
+    "0x8e103030",
+    "0x9c8ccb34",
+    "0x9ddc3f5c",
+    "0xa01b2757",
+    "0xa036e799",
+    "0xa20c4e83",
+    "0xa6cc8d40",
+    "0xa95d67a0",
+    "0xabcbbe18",
+    "0xac17520a",
+    "0xadfca15e",
+    "0xb071614b",
+    "0xb187bd26",
+    "0xbc2634db",
+    "0xc12ed1cd",
+    "0xc414a503",
+    "0xc6dd7267",
+    "0xc84aae17",
+    "0xcc975fb8",
+    "0xcdffacc6",
+    "0xcf46f794",
+    "0xd09318d4",
+    "0xd105d49a",
+    "0xd2ea87ef",
+    "0xe62be87c",
+    "0xe6f210aa",
+    "0xe79b7a51",
+    "0xeaac2917",
+    "0xebb57238",
+    "0xf1dd663e",
+    "0xf2fde38b",
+    "0xf36d999b",
+    "0xf485a005",
+    "0xf7cce18e",
+    "0xf882595b",
+    "0xf9b2f344"
+  ]
+}

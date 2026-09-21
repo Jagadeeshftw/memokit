@@ -49,7 +49,7 @@ interface IMemoController {
     function nonceOf(address _account) external view returns (uint256);
 
     /// @notice Whether an XRPL transaction id has already driven an action.
-    function isTransactionIdUsed(bytes32 _transactionId) external view returns (bool);
+    function isXrplTransactionConsumed(bytes32 _transactionId) external view returns (bool);
 
     /// @notice Whether a transaction id is flagged to be skipped for an account.
     function isIgnored(address _account, bytes32 _transactionId) external view returns (bool);

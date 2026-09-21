@@ -11,7 +11,9 @@
     "verify:mic": "tsx src/measure/micOracle.ts",
     "test": "vitest run",
     "e2e": "tsx src/e2e.ts",
-    "fund": "tsx src/fundWithFxrp.ts"
+    "fund": "tsx src/fundWithFxrp.ts",
+    "selectors:refresh": "tsx src/measure/flareSelectors.ts",
+    "selectors:check": "tsx src/measure/flareSelectors.ts --check"
   },
   "dependencies": {
     "ethers": "^6.13.4",

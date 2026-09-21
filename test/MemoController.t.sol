@@ -66,7 +66,7 @@ contract MemoControllerTest is MemoKitTestBase {
         assertEq(vault.balanceOf(account), DEPOSIT, "vault shares");
         assertEq(fxrp.balanceOf(account), 100_000_000 - DEPOSIT, "remaining balance");
         assertEq(controller.nonceOf(account), 1, "nonce advanced");
-        assertTrue(controller.isTransactionIdUsed(TX_ID), "txid consumed");
+        assertTrue(controller.isXrplTransactionConsumed(TX_ID), "txid consumed");
 
         // No mint anywhere in the path -- the capability Flare's 0xFF/0xFE cannot reach.
         assertEq(fxrp.totalSupply(), supplyBefore, "no FXRP minted");
@@ -303,7 +303,7 @@ contract MemoControllerTest is MemoKitTestBase {
         controller.execute(_proof(TX_ID, _commitMemo(0, payload)), payload);
 
         assertEq(controller.nonceOf(account), 0, "nonce not advanced");
-        assertFalse(controller.isTransactionIdUsed(TX_ID), "txid not consumed");
+        assertFalse(controller.isXrplTransactionConsumed(TX_ID), "txid not consumed");
         assertEq(fxrp.allowance(account, address(vault)), 0, "approval rolled back");
     }
 

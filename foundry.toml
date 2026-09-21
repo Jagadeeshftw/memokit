@@ -17,7 +17,12 @@ optimizer_runs = 200
 bytecode_hash = "none"
 cbor_metadata = false
 
-fs_permissions = [{ access = "read-write", path = "./fixtures" }]
+fs_permissions = [
+    { access = "read-write", path = "./fixtures" },
+    # Read-only: SelectorCollision.t.sol enumerates memokit's selectors from the compiled
+    # artifacts' methodIdentifiers, so no hand-kept list can fall behind the code.
+    { access = "read", path = "./out" },
+]
 
 [fmt]
 line_length = 110

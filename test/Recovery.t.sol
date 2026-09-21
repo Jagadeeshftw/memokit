@@ -63,7 +63,7 @@ contract RecoveryTest is MemoKitTestBase {
         vm.prank(executor);
         vm.expectRevert(abi.encodeWithSelector(MemoCodec.MemoTooShort.selector, 3));
         controller.execute(_proof(TX_BAD, garbage), "");
-        assertFalse(controller.isTransactionIdUsed(TX_BAD), "nothing persisted");
+        assertFalse(controller.isXrplTransactionConsumed(TX_BAD), "nothing persisted");
 
         // 2. A follow-up payment flags the stuck transaction id.
         vm.prank(executor);
@@ -77,7 +77,7 @@ contract RecoveryTest is MemoKitTestBase {
         vm.prank(executor);
         controller.execute(_proof(TX_BAD, garbage), "");
 
-        assertTrue(controller.isTransactionIdUsed(TX_BAD), "retired");
+        assertTrue(controller.isXrplTransactionConsumed(TX_BAD), "retired");
         assertFalse(controller.isIgnored(account, TX_BAD), "flag consumed");
         assertEq(controller.nonceOf(account), 0, "no instruction ran");
     }
@@ -94,7 +94,7 @@ contract RecoveryTest is MemoKitTestBase {
 
         vm.prank(executor);
         controller.execute(_proof(TX_BAD, reserved), "");
-        assertTrue(controller.isTransactionIdUsed(TX_BAD));
+        assertTrue(controller.isXrplTransactionConsumed(TX_BAD));
     }
 
     function test_ignoreFlagIsScopedToOneAccountAndOneTransaction() public {
@@ -207,7 +207,7 @@ contract RecoveryTest is MemoKitTestBase {
     function test_recoveryMemosConsumeTheirOwnTransactionId() public {
         vm.prank(executor);
         controller.execute(_proof(TX_FIX, _ignoreMemo(TX_BAD)), "");
-        assertTrue(controller.isTransactionIdUsed(TX_FIX));
+        assertTrue(controller.isXrplTransactionConsumed(TX_FIX));
 
         vm.prank(executor);
         vm.expectRevert(abi.encodeWithSelector(Execution.TransactionAlreadyUsed.selector, TX_FIX));

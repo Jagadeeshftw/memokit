@@ -74,7 +74,7 @@ contract FacetDropInTest is MemoKitTestBase {
         // Called directly, not through any diamond: the facet's own storage is empty, so the
         // nonce reads zero rather than reverting. Nothing was baked in at construction.
         assertEq(standalone.nonceOf(address(this)), 0);
-        assertFalse(standalone.isTransactionIdUsed(bytes32(uint256(1))));
+        assertFalse(standalone.isXrplTransactionConsumed(bytes32(uint256(1))));
     }
 
     function test_memokitStateDoesNotDisturbLegacyHostSlots() public {
@@ -117,7 +117,7 @@ contract FacetDropInTest is MemoKitTestBase {
         );
 
         assertEq(controller.nonceOf(account), 1, "nonce survived");
-        assertTrue(controller.isTransactionIdUsed(bytes32(uint256(7))), "replay set survived");
+        assertTrue(controller.isXrplTransactionConsumed(bytes32(uint256(7))), "replay set survived");
         assertEq(admin.owner(), owner, "owner survived");
         assertEq(admin.sourceId(), SOURCE_ID, "config survived");
         assertFalse(admin.paused(), "pause flag survived");
@@ -162,7 +162,7 @@ contract FacetDropInTest is MemoKitTestBase {
 contract BeaconSeparationTest is MemoKitTestBase {
     /// @dev Selectors observed on the live Coston2 MasterAccountController, 2026-09-21.
     bytes4 internal constant FLARE_IMPLEMENTATION = 0x5c60da1b; // implementation()
-    bytes4 internal constant FLARE_IS_TX_USED = 0x8e103030; // isTransactionIdUsed(bytes32)
+    bytes4 internal constant FLARE_IS_TX_USED = 0x8e103030; // isXrplTransactionConsumed(bytes32)
 
     function test_controllerNoLongerAnswersImplementation() public view {
         assertEq(
@@ -181,17 +181,19 @@ contract BeaconSeparationTest is MemoKitTestBase {
     }
 
     /**
-     * @dev The remaining known collision, recorded deliberately rather than fixed.
-     *      Cutting `MemoControllerFacet` into Flare's diamond today would revert on this
-     *      selector. The dangerous variant is cutting everything except it: callers would
-     *      then reach Flare's implementation reading Flare's replay set and get a confident
-     *      wrong answer about memokit state. Renaming it is a Phase 2 item.
+     * @dev The last known collision, now closed. `isTransactionIdUsed(bytes32)` (`0x8e103030`)
+     *      is a selector Flare's diamond already answers; cutting memokit's controller in
+     *      beside it would have reverted, and cutting it in *without* it would have let callers
+     *      read Flare's replay set and get a confident wrong answer about memokit state.
+     *      The view is now `isXrplTransactionConsumed`. The general guarantee -- that no memokit
+     *      selector overlaps Flare's, on either network -- lives in `SelectorCollision.t.sol`.
      */
-    function test_remainingKnownCollisionIsStillIsTransactionIdUsed() public view {
+    function test_theLastKnownCollisionIsGone() public view {
+        assertEq(loupe.facetAddress(FLARE_IS_TX_USED), address(0), "old selector must not be routed");
         assertEq(
-            loupe.facetAddress(FLARE_IS_TX_USED),
-            address(controllerFacetAddress()),
-            "isTransactionIdUsed still lives on MemoControllerFacet and still collides"
+            loupe.facetAddress(MemoControllerFacet.isXrplTransactionConsumed.selector),
+            controllerFacetAddress(),
+            "renamed view is routed to the controller facet"
         );
     }
 

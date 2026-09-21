@@ -19,7 +19,7 @@ library FacetSelectors {
         _s = new bytes4[](5);
         _s[0] = MemoControllerFacet.execute.selector;
         _s[1] = MemoControllerFacet.nonceOf.selector;
-        _s[2] = MemoControllerFacet.isTransactionIdUsed.selector;
+        _s[2] = MemoControllerFacet.isXrplTransactionConsumed.selector;
         _s[3] = MemoControllerFacet.isIgnored.selector;
         _s[4] = MemoControllerFacet.replacementFeeOf.selector;
     }

@@ -84,7 +84,7 @@ contract MemoControllerFacet is IMemoController {
     }
 
     /// @inheritdoc IMemoController
-    function isTransactionIdUsed(bytes32 _transactionId) external view returns (bool) {
+    function isXrplTransactionConsumed(bytes32 _transactionId) external view returns (bool) {
         return Execution.getState().usedTransactionIds[_transactionId];
     }
 
