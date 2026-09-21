@@ -128,6 +128,8 @@ async function main() {
   const instruction: Instruction = {
     sender: account,
     nonce,
+    feeToken: ZeroAddress, // Phase 1 trace: no executor fee
+    feeAmount: 0n,
     calls: [
       { target: assetAddress, value: 0n, data: erc20.encodeFunctionData("approve", [vaultAddress, depositAmount]) },
       { target: vaultAddress, value: 0n, data: erc4626.encodeFunctionData("deposit", [depositAmount, account]) },

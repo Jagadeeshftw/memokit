@@ -51,6 +51,17 @@ export interface Instruction {
   sender: string;
   /** Must equal the account's current on-chain nonce. */
   nonce: bigint;
+  /**
+   * Token the executor is paid in -- normally whatever the calls move, so the account never
+   * has to hold a second asset. Ignored when `feeAmount` is zero. Committed to by the same
+   * hash as the calls, so no executor can change it.
+   */
+  feeToken: string;
+  /**
+   * Executor fee in `feeToken` base units, paid only after every call has succeeded. Zero
+   * means no fee. If the calls leave the account unable to pay it, the whole execution reverts.
+   */
+  feeAmount: bigint;
   calls: Call[];
 }
 
@@ -58,8 +69,16 @@ export interface Instruction {
 export interface MemoHeader {
   opcode: number;
   walletId: number;
+  /**
+   * Header bytes 2..9. RESERVED: the executor fee lives in the payload now, so the contract
+   * rejects any non-zero value. The field keeps its place and width so the header stays
+   * byte-compatible with Flare's. {@link encodeMemo} refuses non-zero unless told otherwise.
+   */
   executorFee: bigint;
 }
+
+/** Zero address: the `feeToken` of an instruction that pays no fee. */
+export const NO_FEE_TOKEN = "0x0000000000000000000000000000000000000000";
 
 export type Memo =
   | ({ kind: "execInline" } & MemoHeader & { instruction: Instruction })

@@ -41,23 +41,24 @@ contract MemoCodecHarness {
     function decodeInstruction(bytes calldata _payload)
         external
         pure
-        returns (address _sender, uint256 _nonce, uint256 _callCount)
+        returns (address _sender, uint256 _nonce, address _feeToken, uint256 _feeAmount, uint256 _callCount)
     {
         IPersonalAccount.Call[] memory calls;
-        (_sender, _nonce, calls) = MemoCodec.decodeInstruction(_payload);
+        (_sender, _nonce, _feeToken, _feeAmount, calls) = MemoCodec.decodeInstruction(_payload);
         _callCount = calls.length;
     }
 
     /**
      * @notice Decode then re-encode an instruction payload.
      * @dev The returned bytes must equal the input exactly. That is the byte-level proof that
-     *      Solidity's `abi.encode(address, uint256, Call[])` and ethers' `AbiCoder.encode` of
-     *      the same tuple produce identical output -- the property the TS encoder relies on.
+     *      Solidity's `abi.encode(address, uint256, address, uint256, Call[])` and ethers'
+     *      `AbiCoder.encode` of the same tuple produce identical output -- the property the TS
+     *      encoder relies on.
      */
     function roundTripInstruction(bytes calldata _payload) external pure returns (bytes memory) {
-        (address sender, uint256 nonce, IPersonalAccount.Call[] memory calls) =
-            MemoCodec.decodeInstruction(_payload);
-        return abi.encode(sender, nonce, calls);
+        (address sender, uint256 nonce, address feeToken, uint256 feeAmount, IPersonalAccount.Call[] memory calls)
+        = MemoCodec.decodeInstruction(_payload);
+        return abi.encode(sender, nonce, feeToken, feeAmount, calls);
     }
 
     /// @notice Decode a single call out of a payload, for field-level assertions.
@@ -66,7 +67,7 @@ contract MemoCodecHarness {
         pure
         returns (address _target, uint256 _value, bytes memory _data)
     {
-        (,, IPersonalAccount.Call[] memory calls) = MemoCodec.decodeInstruction(_payload);
+        (,,,, IPersonalAccount.Call[] memory calls) = MemoCodec.decodeInstruction(_payload);
         return (calls[_index].target, calls[_index].value, calls[_index].data);
     }
 }

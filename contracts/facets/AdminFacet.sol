@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {Accounts} from "../libraries/Accounts.sol";
 import {PersonalAccountBeacon} from "../accounts/PersonalAccountBeacon.sol";
-import {Fees} from "../libraries/Fees.sol";
 import {Governance} from "../libraries/Governance.sol";
 import {Pause} from "../libraries/Pause.sol";
 import {Proofs} from "../libraries/Proofs.sol";
@@ -14,8 +13,8 @@ import {Proofs} from "../libraries/Proofs.sol";
  *
  * @dev The timelocked/immediate split mirrors Flare Smart Accounts on purpose:
  *
- *        timelocked -- economic or trust-changing: fee token, source id, proof validity
- *                      window, account implementation, ownership, timelock duration itself.
+ *        timelocked -- economic or trust-changing: source id, proof validity window, account
+ *                      implementation, ownership, timelock duration itself.
  *        immediate  -- operational or emergency: the receiving-address registry, pauser
  *                      membership, pause and unpause.
  *
@@ -32,7 +31,6 @@ contract AdminFacet {
         bytes32 sourceId;
         uint64 validityDurationSeconds;
         uint64 timelockDurationSeconds;
-        address feeToken;
         string[] receivingAddresses;
         address[] pausers;
         address[] unpausers;
@@ -64,7 +62,6 @@ contract AdminFacet {
         Accounts.setBeacon(_params.accountBeacon);
         Proofs.setSourceId(_params.sourceId);
         Proofs.setValidityDuration(_params.validityDurationSeconds);
-        Fees.setFeeToken(_params.feeToken);
 
         for (uint256 i = 0; i < _params.receivingAddresses.length; ++i) {
             Proofs.addReceivingAddress(_params.receivingAddresses[i]);
@@ -90,10 +87,6 @@ contract AdminFacet {
 
     function setValidityDuration(uint64 _durationSeconds) external timelocked {
         Proofs.setValidityDuration(_durationSeconds);
-    }
-
-    function setFeeToken(address _feeToken) external timelocked {
-        Fees.setFeeToken(_feeToken);
     }
 
     /// @dev Upgrades every account at once, via the beacon. The beacon address itself is
@@ -168,10 +161,6 @@ contract AdminFacet {
 
     function validityDurationSeconds() external view returns (uint64) {
         return Proofs.getState().validityDurationSeconds;
-    }
-
-    function feeToken() external view returns (address) {
-        return Fees.feeToken();
     }
 
     /// @dev The beacon address itself is exposed by `AccountsFacet`, not here: two facets

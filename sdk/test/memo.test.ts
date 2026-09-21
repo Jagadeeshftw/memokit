@@ -43,8 +43,17 @@ const callArb = fc.record({ target: addressArb, value: u256Arb, data: dataArb })
 const instructionArb: fc.Arbitrary<Instruction> = fc.record({
   sender: addressArb,
   nonce: u256Arb,
+  feeToken: addressArb,
+  feeAmount: u256Arb,
   calls: fc.array(callArb, { minLength: 1, maxLength: 5 }),
 });
+
+/**
+ * The header executorFee is reserved and `encodeMemo` refuses a non-zero one. The arbitraries
+ * still generate them, because the codec must round-trip the field faithfully (a memo from a
+ * Flare wallet arrives with it set, and has to be decodable in order to be recovered).
+ */
+const RESERVED_OK = { allowReservedFee: true } as const;
 
 const memoArb: fc.Arbitrary<Memo> = fc.oneof(
   fc.record({
@@ -91,7 +100,7 @@ describe("memo round trip", () => {
   it("decode(encode(memo)) === memo, for every opcode", () => {
     fc.assert(
       fc.property(memoArb, (memo) => {
-        const decoded = decodeMemo(encodeMemo(memo));
+        const decoded = decodeMemo(encodeMemo(memo, RESERVED_OK));
         expect(decoded).toEqual(memo);
       }),
       { numRuns: 500 },
@@ -110,7 +119,7 @@ describe("memo round trip", () => {
   it("encoding is deterministic", () => {
     fc.assert(
       fc.property(memoArb, (memo) => {
-        expect(encodeMemo(memo)).toEqual(encodeMemo(memo));
+        expect(encodeMemo(memo, RESERVED_OK)).toEqual(encodeMemo(memo, RESERVED_OK));
       }),
       { numRuns: 200 },
     );
@@ -119,7 +128,7 @@ describe("memo round trip", () => {
   it("XRPL MemoData hex survives the round trip", () => {
     fc.assert(
       fc.property(memoArb, (memo) => {
-        const encoded = encodeMemo(memo);
+        const encoded = encodeMemo(memo, RESERVED_OK);
         expect(fromXrplMemoData(toXrplMemoData(encoded))).toEqual(encoded);
       }),
       { numRuns: 200 },
@@ -130,26 +139,105 @@ describe("memo round trip", () => {
 // --- header layout ---------------------------------------------------------------------
 
 describe("header layout", () => {
-  it("is exactly 10 bytes: opcode, walletId, uint64 BE fee", () => {
-    const memo = encodeMemo({
-      kind: "ignore",
-      opcode: Opcode.Ignore,
-      walletId: 0xab,
-      executorFee: 0x0102030405060708n,
-      targetTransactionId: "0x" + "cd".repeat(32),
-    });
+  it("is exactly 10 bytes: opcode, walletId, uint64 BE fee field", () => {
+    const memo = encodeMemo(
+      {
+        kind: "ignore",
+        opcode: Opcode.Ignore,
+        walletId: 0xab,
+        executorFee: 0x0102030405060708n,
+        targetTransactionId: "0x" + "cd".repeat(32),
+      },
+      RESERVED_OK,
+    );
     expect(memo.slice(0, 2 + HEADER_LENGTH * 2)).toEqual("0xe0ab0102030405060708");
   });
 
-  it("fee is big-endian", () => {
-    const memo = encodeMemo({
-      kind: "ignore",
-      opcode: Opcode.Ignore,
-      walletId: 0,
-      executorFee: 1n,
-      targetTransactionId: "0x" + "00".repeat(32),
-    });
+  it("the field is big-endian", () => {
+    const memo = encodeMemo(
+      {
+        kind: "ignore",
+        opcode: Opcode.Ignore,
+        walletId: 0,
+        executorFee: 1n,
+        targetTransactionId: "0x" + "00".repeat(32),
+      },
+      RESERVED_OK,
+    );
     expect(memo.slice(2, 22)).toEqual("e000" + "0000000000000001");
+  });
+
+  it("is byte-identical to Flare's with the reserved field zero: same length, same offsets", () => {
+    const memo = encodeMemo({
+      kind: "execCommit",
+      opcode: Opcode.ExecCommit,
+      walletId: 7,
+      executorFee: 0n,
+      commitment: "0x" + "11".repeat(32),
+    });
+    // opcode | walletId | 8 zero bytes | 32-byte commitment: Flare's 0xFE with one byte changed.
+    expect(memo).toEqual("0xfc07" + "00".repeat(8) + "11".repeat(32));
+    expect(byteLength(memo)).toEqual(42);
+  });
+});
+
+// --- the executor fee lives in the payload -----------------------------------------------
+
+describe("executor fee", () => {
+  const memoWithHeaderFee = (executorFee: bigint): Memo => ({
+    kind: "execCommit",
+    opcode: Opcode.ExecCommit,
+    walletId: 1,
+    executorFee,
+    commitment: "0x" + "22".repeat(32),
+  });
+
+  it("encodeMemo refuses a non-zero header fee unless told otherwise", () => {
+    expect(() => encodeMemo(memoWithHeaderFee(1n))).toThrow(MemoEncodeError);
+    expect(() => encodeMemo(memoWithHeaderFee(1n))).toThrow(/reserved/);
+    expect(() => encodeMemo(memoWithHeaderFee(0n))).not.toThrow();
+    expect(() => encodeMemo(memoWithHeaderFee(1n), RESERVED_OK)).not.toThrow();
+  });
+
+  it("the payload round-trips its fee token and amount, including the extremes", () => {
+    const base: Instruction = {
+      sender: "0x1111111111111111111111111111111111111111",
+      nonce: 0n,
+      feeToken: "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      feeAmount: 0n,
+      calls: [{ target: "0x2222222222222222222222222222222222222222", value: 0n, data: "0x" }],
+    };
+    for (const feeAmount of [0n, 1n, 250_000n, (1n << 128n) - 1n, (1n << 256n) - 1n]) {
+      const i = { ...base, feeAmount };
+      expect(decodeInstruction(encodeInstruction(i))).toEqual(i);
+    }
+  });
+
+  it("rejects a fee amount above uint256", () => {
+    expect(() =>
+      encodeInstruction({
+        sender: "0x1111111111111111111111111111111111111111",
+        nonce: 0n,
+        feeToken: "0x2222222222222222222222222222222222222222",
+        feeAmount: 1n << 256n,
+        calls: [],
+      }),
+    ).toThrow(MemoEncodeError);
+  });
+
+  it("the commitment binds the fee token and the fee amount separately", () => {
+    const i: Instruction = {
+      sender: "0x1111111111111111111111111111111111111111",
+      nonce: 3n,
+      feeToken: "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      feeAmount: 1_000n,
+      calls: [{ target: "0x2222222222222222222222222222222222222222", value: 0n, data: "0xdeadbeef" }],
+    };
+    const c = commitmentOf(i);
+    // An executor who could change either half would be able to redirect or inflate its own pay.
+    expect(commitmentOf({ ...i, feeAmount: 1_001n })).not.toEqual(c);
+    expect(commitmentOf({ ...i, feeToken: "0x3333333333333333333333333333333333333333" })).not.toEqual(c);
+    expect(commitmentOf({ ...i })).toEqual(c);
   });
 });
 
@@ -262,15 +350,18 @@ describe("opcode discipline", () => {
 // --- range checks ----------------------------------------------------------------------
 
 describe("range checks", () => {
-  it("rejects a fee above uint64", () => {
+  it("rejects a header fee above uint64, even when reserved fees are allowed", () => {
     expect(() =>
-      encodeMemo({
-        kind: "ignore",
-        opcode: Opcode.Ignore,
-        walletId: 0,
-        executorFee: 1n << 64n,
-        targetTransactionId: "0x" + "00".repeat(32),
-      }),
+      encodeMemo(
+        {
+          kind: "ignore",
+          opcode: Opcode.Ignore,
+          walletId: 0,
+          executorFee: 1n << 64n,
+          targetTransactionId: "0x" + "00".repeat(32),
+        },
+        RESERVED_OK,
+      ),
     ).toThrow(MemoEncodeError);
   });
 
@@ -340,6 +431,8 @@ describe("XRPL memo budget", () => {
     const big: Instruction = {
       sender: getAddress(hexlify(randomBytes(20))),
       nonce: 0n,
+      feeToken: getAddress(hexlify(randomBytes(20))),
+      feeAmount: 0n,
       calls: [{ target: getAddress(hexlify(randomBytes(20))), value: 0n, data: hexlify(randomBytes(1200)) }],
     };
     const memo = encodeMemo({
@@ -370,8 +463,24 @@ describe("golden fixtures", () => {
 
   it("every case re-encodes byte-identically", () => {
     for (const c of fixture.cases) {
-      expect(encodeMemo(decodeMemo(c.memo)), c.name).toEqual(c.memo);
+      expect(encodeMemo(decodeMemo(c.memo), RESERVED_OK), c.name).toEqual(c.memo);
     }
+  });
+
+  it("a case encodes without the escape hatch exactly when its header fee is zero", () => {
+    let reserved = 0;
+    for (const c of fixture.cases) {
+      const decoded = decodeMemo(c.memo);
+      if (c.headerFeeReserved) {
+        reserved++;
+        expect(BigInt(c.executorFee), c.name).toBeGreaterThan(0n);
+        expect(() => encodeMemo(decoded), c.name).toThrow(MemoEncodeError);
+      } else {
+        expect(BigInt(c.executorFee), c.name).toEqual(0n);
+        expect(encodeMemo(decoded), c.name).toEqual(c.memo);
+      }
+    }
+    expect(reserved, "the fixtures must include memos the contract rejects").toBeGreaterThan(0);
   });
 
   it("recorded commitments match the recorded payloads", () => {
@@ -381,6 +490,8 @@ describe("golden fixtures", () => {
       expect(commitmentOf(instruction), c.name).toEqual(c.commitment);
       expect(instruction.sender, c.name).toEqual(getAddress(c.sender));
       expect(instruction.nonce, c.name).toEqual(BigInt(c.nonce));
+      expect(instruction.feeToken, c.name).toEqual(getAddress(c.feeToken));
+      expect(instruction.feeAmount, c.name).toEqual(BigInt(c.feeAmount));
       expect(instruction.calls.length, c.name).toEqual(c.callCount);
     }
   });

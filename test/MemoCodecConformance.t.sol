@@ -55,20 +55,28 @@ contract MemoCodecConformanceTest is Test {
             if (payload.length == 0) {
                 continue;
             }
-            string memory name = vm.parseJsonString(json, _path(i, ".name"));
-
-            assertEq(harness.roundTripInstruction(payload), payload, name);
-
-            (address sender, uint256 nonce, uint256 callCount) = harness.decodeInstruction(payload);
-            assertEq(sender, vm.parseJsonAddress(json, _path(i, ".sender")), name);
-            assertEq(nonce, vm.parseJsonUint(json, _path(i, ".nonce")), name);
-            assertEq(callCount, vm.parseJsonUint(json, _path(i, ".callCount")), name);
-
-            // Pins every byte of every call, transitively.
-            assertEq(keccak256(payload), vm.parseJsonBytes32(json, _path(i, ".commitment")), name);
+            _assertPayloadMatchesFixture(i, payload);
             ++checked;
         }
         assertGt(checked, 0, "no instruction fixtures");
+    }
+
+    /// @dev Split out: a five-way tuple decode plus the loop's locals overflows the stack.
+    function _assertPayloadMatchesFixture(uint256 _i, bytes memory _payload) internal view {
+        string memory name = vm.parseJsonString(json, _path(_i, ".name"));
+
+        assertEq(harness.roundTripInstruction(_payload), _payload, name);
+
+        (address sender, uint256 nonce, address feeToken, uint256 feeAmount, uint256 callCount) =
+            harness.decodeInstruction(_payload);
+        assertEq(sender, vm.parseJsonAddress(json, _path(_i, ".sender")), name);
+        assertEq(nonce, vm.parseJsonUint(json, _path(_i, ".nonce")), name);
+        assertEq(feeToken, vm.parseJsonAddress(json, _path(_i, ".feeToken")), name);
+        assertEq(feeAmount, vm.parseJsonUint(json, _path(_i, ".feeAmount")), name);
+        assertEq(callCount, vm.parseJsonUint(json, _path(_i, ".callCount")), name);
+
+        // Pins every byte of every call, and now the fee, transitively.
+        assertEq(keccak256(_payload), vm.parseJsonBytes32(json, _path(_i, ".commitment")), name);
     }
 
     function test_inlinePayloadEqualsRecordedPayload() public view {
@@ -195,27 +203,40 @@ contract MemoCodecConformanceTest is Test {
         assertEq(uint256(header.executorFee), uint256(_fee));
     }
 
-    function testFuzz_instructionEncodingIsCanonical(
-        address _sender,
-        uint256 _nonce,
-        address _target,
-        uint256 _value,
-        bytes calldata _data
-    ) public view {
-        IPersonalAccount.Call[] memory calls = new IPersonalAccount.Call[](1);
-        calls[0] = IPersonalAccount.Call({target: _target, value: _value, data: _data});
+    struct FuzzInstruction {
+        address sender;
+        uint256 nonce;
+        address feeToken;
+        uint256 feeAmount;
+        address target;
+        uint256 value;
+    }
 
-        bytes memory payload = abi.encode(_sender, _nonce, calls);
+    function testFuzz_instructionEncodingIsCanonical(FuzzInstruction calldata _f, bytes calldata _data)
+        public
+        view
+    {
+        IPersonalAccount.Call[] memory calls = new IPersonalAccount.Call[](1);
+        calls[0] = IPersonalAccount.Call({target: _f.target, value: _f.value, data: _data});
+
+        bytes memory payload = abi.encode(_f.sender, _f.nonce, _f.feeToken, _f.feeAmount, calls);
         assertEq(harness.roundTripInstruction(payload), payload);
 
-        (address sender, uint256 nonce, uint256 callCount) = harness.decodeInstruction(payload);
-        assertEq(sender, _sender);
-        assertEq(nonce, _nonce);
-        assertEq(callCount, 1);
+        _assertDecodesTo(payload, _f);
 
         (address target, uint256 value, bytes memory data) = harness.callAt(payload, 0);
-        assertEq(target, _target);
-        assertEq(value, _value);
+        assertEq(target, _f.target);
+        assertEq(value, _f.value);
         assertEq(data, _data);
+    }
+
+    function _assertDecodesTo(bytes memory _payload, FuzzInstruction calldata _f) private view {
+        (address sender, uint256 nonce, address feeToken, uint256 feeAmount, uint256 callCount) =
+            harness.decodeInstruction(_payload);
+        assertEq(sender, _f.sender);
+        assertEq(nonce, _f.nonce);
+        assertEq(feeToken, _f.feeToken);
+        assertEq(feeAmount, _f.feeAmount);
+        assertEq(callCount, 1);
     }
 }

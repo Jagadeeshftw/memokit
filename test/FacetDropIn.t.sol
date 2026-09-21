@@ -125,11 +125,10 @@ contract FacetDropInTest is MemoKitTestBase {
 
     /// @dev Namespaced slots must be far apart from each other as well as from slot 0.
     function test_namespacedSlotsAreDistinct() public pure {
-        bytes32[6] memory slots = [
+        bytes32[5] memory slots = [
             _slot("memokit.Accounts.State"),
             _slot("memokit.Execution.State"),
             _slot("memokit.Proofs.State"),
-            _slot("memokit.Fees.State"),
             _slot("memokit.Pause.State"),
             _slot("memokit.Governance.State")
         ];

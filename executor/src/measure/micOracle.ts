@@ -69,6 +69,8 @@ async function main() {
   const instruction: Instruction = {
     sender: "0x1111111111111111111111111111111111111111",
     nonce: 0n,
+    feeToken: "0x0000000000000000000000000000000000000000",
+    feeAmount: 0n,
     calls: [{ target: "0x2222222222222222222222222222222222222222", value: 0n, data: "0xdeadbeef" }],
   };
   const memo = encodeMemo({

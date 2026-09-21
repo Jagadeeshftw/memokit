@@ -155,11 +155,10 @@ contract RecoveryTest is MemoKitTestBase {
 
     // --- 0xE2 ----------------------------------------------------------------------------
 
-    function test_replacementFeeOverridesTheMemoFeeAndIsConsumed() public {
-        bytes memory payload = _instruction(account, 0, _transferCalls(1_000));
-        bytes memory memo = abi.encodePacked(
-            _header(MemoCodec.OP_EXEC_COMMIT, 1, uint64(500_000)), keccak256(payload)
-        );
+    function test_replacementFeeOverridesThePayloadFeeAndIsConsumed() public {
+        bytes memory payload =
+            _instructionWithFee(account, 0, address(fxrp), 500_000, _transferCalls(1_000));
+        bytes memory memo = abi.encodePacked(_header(MemoCodec.OP_EXEC_COMMIT, 1, uint64(0)), keccak256(payload));
 
         vm.prank(executor);
         controller.execute(_proof(TX_FIX, _replaceFeeMemo(TX_BAD, 1_000)), "");
@@ -168,19 +167,20 @@ contract RecoveryTest is MemoKitTestBase {
         vm.prank(executor);
         controller.execute(_proof(TX_BAD, memo), payload);
 
-        assertEq(fxrp.balanceOf(executor), 1_000, "override applied, not the memo's 500000");
+        assertEq(fxrp.balanceOf(executor), 1_000, "override applied, not the payload's 500000");
         assertEq(controller.replacementFeeOf(account, TX_BAD), 0, "override consumed");
     }
 
-    /// @dev Lowering to zero is how an account with too small a balance gets unstuck.
+    /// @dev Lowering to zero is how an account with too small a balance gets unstuck. The override
+    ///      changes the AMOUNT only: the token is still the payload's, so the owner cannot use it to
+    ///      redirect the fee, and only the owner's own XRPL key can produce a 0xE2 at all.
     function test_replacementFeeCanLowerToZero() public {
-        bytes memory payload = _instruction(account, 0, _transferCalls(1_000));
-        bytes memory memo = abi.encodePacked(
-            _header(MemoCodec.OP_EXEC_COMMIT, 1, type(uint64).max), keccak256(payload)
-        );
+        bytes memory payload =
+            _instructionWithFee(account, 0, address(fxrp), type(uint256).max, _transferCalls(1_000));
+        bytes memory memo = abi.encodePacked(_header(MemoCodec.OP_EXEC_COMMIT, 1, uint64(0)), keccak256(payload));
 
         vm.prank(executor);
-        vm.expectRevert(); // account cannot pay a uint64-max fee
+        vm.expectRevert(); // the account cannot pay a fee of uint256.max
         controller.execute(_proof(TX_BAD, memo), payload);
 
         vm.prank(executor);

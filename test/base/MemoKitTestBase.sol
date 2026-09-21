@@ -99,7 +99,6 @@ abstract contract MemoKitTestBase is Test {
                 sourceId: SOURCE_ID,
                 validityDurationSeconds: VALIDITY_SECONDS,
                 timelockDurationSeconds: TIMELOCK_SECONDS,
-                feeToken: address(fxrp),
                 receivingAddresses: receiving,
                 pausers: pausers,
                 unpausers: pausers
@@ -159,12 +158,24 @@ abstract contract MemoKitTestBase is Test {
         return abi.encodePacked(_opcode, _walletId, _fee);
     }
 
+    /// @dev An instruction that pays no fee: token zero, amount zero.
     function _instruction(address _sender, uint256 _nonce, IPersonalAccount.Call[] memory _calls)
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encode(_sender, _nonce, _calls);
+        return abi.encode(_sender, _nonce, address(0), uint256(0), _calls);
+    }
+
+    /// @dev An instruction whose executor fee is `_feeAmount` of `_feeToken`, inside the payload.
+    function _instructionWithFee(
+        address _sender,
+        uint256 _nonce,
+        address _feeToken,
+        uint256 _feeAmount,
+        IPersonalAccount.Call[] memory _calls
+    ) internal pure returns (bytes memory) {
+        return abi.encode(_sender, _nonce, _feeToken, _feeAmount, _calls);
     }
 
     function _oneCall(address _target, uint256 _value, bytes memory _data)

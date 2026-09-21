@@ -30,9 +30,6 @@ import {FacetSelectors} from "./lib/FacetSelectors.sol";
  *      stack, and the repo builds without `via_ir` to keep iteration fast.
  */
 contract DeployMemoKit is Script {
-    /// @dev FTestXRP on Coston2 -- the token executors are paid in by default.
-    address internal constant COSTON2_FTESTXRP = 0x0b6A3645c240605887a5532109323A3E12273dc7;
-
     struct Deployed {
         address diamond;
         address diamondCutFacet;
@@ -50,7 +47,6 @@ contract DeployMemoKit is Script {
         bytes32 sourceId;
         uint64 validitySeconds;
         uint64 timelockSeconds;
-        address feeToken;
     }
 
     function run() external {
@@ -72,7 +68,6 @@ contract DeployMemoKit is Script {
         _c.sourceId = bytes32(bytes(vm.envOr("MEMOKIT_SOURCE_ID", string("testXRP"))));
         _c.validitySeconds = uint64(vm.envOr("MEMOKIT_VALIDITY_SECONDS", uint256(86_400)));
         _c.timelockSeconds = uint64(vm.envOr("MEMOKIT_TIMELOCK_SECONDS", uint256(3_600)));
-        _c.feeToken = vm.envOr("MEMOKIT_FEE_TOKEN", COSTON2_FTESTXRP);
     }
 
     function _deployFacets(address _deployer) internal returns (Deployed memory _d) {
@@ -109,7 +104,6 @@ contract DeployMemoKit is Script {
                 sourceId: _c.sourceId,
                 validityDurationSeconds: _c.validitySeconds,
                 timelockDurationSeconds: _c.timelockSeconds,
-                feeToken: _c.feeToken,
                 receivingAddresses: receiving,
                 pausers: pausers,
                 unpausers: pausers
@@ -127,7 +121,6 @@ contract DeployMemoKit is Script {
         console.log("  PersonalAccount    ", _d.personalAccountImplementation);
         console.log("  AccountBeacon      ", _d.personalAccountBeacon);
         console.log("owner                ", _c.owner);
-        console.log("fee token            ", _c.feeToken);
         console.log("receiving address    ", _c.receivingAddress);
 
         vm.writeFile("fixtures/deployment.json", _json(_d, _c));
@@ -146,7 +139,6 @@ contract DeployMemoKit is Script {
             '",\n  "personalAccountImplementation": "', vm.toString(_d.personalAccountImplementation),
             '",\n  "personalAccountBeacon": "', vm.toString(_d.personalAccountBeacon),
             '",\n  "owner": "', vm.toString(_c.owner),
-            '",\n  "feeToken": "', vm.toString(_c.feeToken),
             '",\n  "receivingAddress": "', _c.receivingAddress,
             '"\n}\n'
         );

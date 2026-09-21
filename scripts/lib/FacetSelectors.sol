@@ -41,32 +41,30 @@ library FacetSelectors {
     }
 
     function admin() internal pure returns (bytes4[] memory _s) {
-        _s = new bytes4[](25);
+        _s = new bytes4[](23);
         _s[0] = AdminFacet.initializeMemoKit.selector;
         _s[1] = AdminFacet.setSourceId.selector;
         _s[2] = AdminFacet.setValidityDuration.selector;
-        _s[3] = AdminFacet.setFeeToken.selector;
-        _s[4] = AdminFacet.setAccountImplementation.selector;
-        _s[5] = AdminFacet.setTimelockDuration.selector;
-        _s[6] = AdminFacet.transferOwnership.selector;
-        _s[7] = AdminFacet.addReceivingAddress.selector;
-        _s[8] = AdminFacet.removeReceivingAddress.selector;
-        _s[9] = AdminFacet.setPauser.selector;
-        _s[10] = AdminFacet.setUnpauser.selector;
-        _s[11] = AdminFacet.pause.selector;
-        _s[12] = AdminFacet.unpause.selector;
-        _s[13] = AdminFacet.owner.selector;
-        _s[14] = AdminFacet.timelockDurationSeconds.selector;
-        _s[15] = AdminFacet.scheduledAt.selector;
-        _s[16] = AdminFacet.paused.selector;
-        _s[17] = AdminFacet.isPauser.selector;
-        _s[18] = AdminFacet.isUnpauser.selector;
-        _s[19] = AdminFacet.sourceId.selector;
-        _s[20] = AdminFacet.validityDurationSeconds.selector;
-        _s[21] = AdminFacet.feeToken.selector;
-        _s[22] = AdminFacet.accountImplementation.selector;
-        _s[23] = AdminFacet.receivingAddresses.selector;
-        _s[24] = AdminFacet.isReceivingAddress.selector;
+        _s[3] = AdminFacet.setAccountImplementation.selector;
+        _s[4] = AdminFacet.setTimelockDuration.selector;
+        _s[5] = AdminFacet.transferOwnership.selector;
+        _s[6] = AdminFacet.addReceivingAddress.selector;
+        _s[7] = AdminFacet.removeReceivingAddress.selector;
+        _s[8] = AdminFacet.setPauser.selector;
+        _s[9] = AdminFacet.setUnpauser.selector;
+        _s[10] = AdminFacet.pause.selector;
+        _s[11] = AdminFacet.unpause.selector;
+        _s[12] = AdminFacet.owner.selector;
+        _s[13] = AdminFacet.timelockDurationSeconds.selector;
+        _s[14] = AdminFacet.scheduledAt.selector;
+        _s[15] = AdminFacet.paused.selector;
+        _s[16] = AdminFacet.isPauser.selector;
+        _s[17] = AdminFacet.isUnpauser.selector;
+        _s[18] = AdminFacet.sourceId.selector;
+        _s[19] = AdminFacet.validityDurationSeconds.selector;
+        _s[20] = AdminFacet.accountImplementation.selector;
+        _s[21] = AdminFacet.receivingAddresses.selector;
+        _s[22] = AdminFacet.isReceivingAddress.selector;
     }
 
     function add(address _facet, bytes4[] memory _selectors)

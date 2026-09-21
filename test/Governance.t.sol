@@ -19,7 +19,6 @@ contract GovernanceTest is MemoKitTestBase {
         assertEq(admin.timelockDurationSeconds(), TIMELOCK_SECONDS);
         assertEq(admin.sourceId(), SOURCE_ID);
         assertEq(admin.validityDurationSeconds(), VALIDITY_SECONDS);
-        assertEq(admin.feeToken(), address(fxrp));
         assertTrue(admin.isPauser(pauser));
         assertTrue(admin.isUnpauser(pauser));
     }
@@ -36,7 +35,6 @@ contract GovernanceTest is MemoKitTestBase {
                 sourceId: SOURCE_ID,
                 validityDurationSeconds: 1,
                 timelockDurationSeconds: 1,
-                feeToken: address(0),
                 receivingAddresses: none,
                 pausers: noneAddr,
                 unpausers: noneAddr
@@ -88,7 +86,7 @@ contract GovernanceTest is MemoKitTestBase {
     function test_timelockedSetterRejectsNonOwner() public {
         vm.prank(executor);
         vm.expectRevert(abi.encodeWithSelector(Governance.OnlyOwner.selector, executor));
-        admin.setFeeToken(address(0));
+        admin.setSourceId(bytes32("nope"));
     }
 
     function test_ownershipTransferIsTimelocked() public {

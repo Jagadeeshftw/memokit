@@ -15,7 +15,8 @@ pragma solidity ^0.8.30;
  *      funds. The nonce problem is identical, so `0xE1` matters just as much.
  *
  *      Lockout cannot occur: `execute` is open to any caller, so an account owner who cannot
- *      find a paid executor can always submit a zero-fee recovery memo themselves.
+ *      find a paid executor can always submit a recovery memo themselves. Recovery memos carry
+ *      no fee: they have no payload to name a fee token in, and the header field is reserved.
  */
 library Execution {
     /// @custom:storage-location erc7201:memokit.Execution.State
@@ -94,13 +95,17 @@ library Execution {
     }
 
     /**
-     * @notice Resolve the fee for this execution, consuming any override.
-     * @param _memoFee Fee from the memo header.
-     * @return _fee The fee to pay the executor.
+     * @notice Resolve the fee amount for this execution, consuming any override.
+     * @dev The override replaces the AMOUNT the payload committed to; the token stays the
+     *      payload's. It is set by a 0xE2 memo, which only the account's own XRPL key can
+     *      produce, so it widens nobody's power over the account: an executor still cannot
+     *      change either half of the fee, only the owner can.
+     * @param _payloadFee Fee amount from the committed payload.
+     * @return _fee The fee to pay the executor, in the payload's fee token.
      */
-    function resolveFee(address _account, bytes32 _transactionId, uint64 _memoFee)
+    function resolveFee(address _account, bytes32 _transactionId, uint256 _payloadFee)
         internal
-        returns (uint64 _fee)
+        returns (uint256 _fee)
     {
         State storage state = getState();
         uint64 stored = state.replacementFee[_account][_transactionId];
@@ -108,7 +113,7 @@ library Execution {
             delete state.replacementFee[_account][_transactionId];
             return stored - 1;
         }
-        return _memoFee;
+        return _payloadFee;
     }
 
     function getState() internal pure returns (State storage _state) {

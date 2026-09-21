@@ -7,7 +7,6 @@ import {IIPersonalAccount} from "../interfaces/IIPersonalAccount.sol";
 import {IPersonalAccount} from "../interfaces/IPersonalAccount.sol";
 import {Accounts} from "../libraries/Accounts.sol";
 import {Execution} from "../libraries/Execution.sol";
-import {Fees} from "../libraries/Fees.sol";
 import {MemoCodec} from "../libraries/MemoCodec.sol";
 import {Pause} from "../libraries/Pause.sol";
 import {Proofs} from "../libraries/Proofs.sol";
@@ -28,6 +27,10 @@ import {Proofs} from "../libraries/Proofs.sol";
  *      Ordering is deliberate and mirrors Flare's: the ignore flag is consumed *before* any
  *      memo parsing. If it were checked after, a memo that fails to parse could never be
  *      recovered from, because the recovery path itself would revert on the bad memo.
+ *
+ *      The executor fee is part of the committed payload, is paid in the token it names, and is
+ *      paid only after every call has succeeded -- see `_payExecutor`. Nothing about it is
+ *      configured on the controller, so an account never needs to hold an asset it is not moving.
  */
 contract MemoControllerFacet is IMemoController {
     /// @inheritdoc IMemoController
@@ -53,8 +56,11 @@ contract MemoControllerFacet is IMemoController {
         MemoCodec.Header memory header = MemoCodec.readHeader(memo);
         require(!MemoCodec.isReserved(header.opcode), MemoCodec.ReservedOpcode(header.opcode));
 
-        uint64 fee = Execution.resolveFee(address(account), transactionId, header.executorFee);
-        _payExecutor(account, fee);
+        // Header bytes 2..9 are reserved. Rejecting rather than ignoring is deliberate: a wallet
+        // built for Flare that puts a fee there would otherwise sign a payment that promises an
+        // executor money the contract never intends to pay. This sits AFTER the ignore flag
+        // above, so a memo rejected here can still be retired with 0xE0.
+        require(header.executorFee == 0, HeaderFeeReserved(header.executorFee));
 
         if (header.opcode == MemoCodec.OP_EXEC_INLINE) {
             _executeInstruction(account, transactionId, header.opcode, memo[MemoCodec.HEADER_LENGTH:]);
@@ -105,24 +111,44 @@ contract MemoControllerFacet is IMemoController {
         uint8 _opcode,
         bytes memory _payload
     ) private {
-        (address sender, uint256 nonce, IPersonalAccount.Call[] memory calls) =
-            MemoCodec.decodeInstruction(_payload);
+        (
+            address sender,
+            uint256 nonce,
+            address feeToken,
+            uint256 feeAmount,
+            IPersonalAccount.Call[] memory calls
+        ) = MemoCodec.decodeInstruction(_payload);
 
         require(sender == address(_account), SenderMismatch(address(_account), sender));
         Execution.useNonce(address(_account), nonce);
 
+        // Resolved and validated before the calls run so a malformed fee fails cheaply, but paid
+        // only after them: see `_payExecutor`.
+        uint256 fee = Execution.resolveFee(address(_account), _transactionId, feeAmount);
+        require(fee == 0 || feeToken != address(0), InvalidFee(feeToken, fee));
+
         _account.executeUserOp{value: msg.value}(calls);
+        _payExecutor(_account, feeToken, fee);
 
         emit InstructionExecuted(address(_account), _transactionId, _opcode, nonce, calls.length);
     }
 
-    function _payExecutor(IIPersonalAccount _account, uint64 _fee) private {
+    /**
+     * @dev Paid AFTER the calls, not before, for two reasons that both come from the fee being in
+     *      the moved asset. First, the asset may not exist in the account until the calls have
+     *      run: a swap or a borrow produces the token the fee is denominated in. Second, it makes
+     *      "the executor is paid only if the instruction succeeded" structural rather than
+     *      procedural: there is no ordering in which a failing call could leave the fee paid.
+     *
+     *      The cost is that an instruction which spends its whole balance leaves nothing for the
+     *      fee, and then the whole execution reverts. That is the correct outcome -- the alternative
+     *      is an executor working for free -- but it means a payload author must leave room.
+     */
+    function _payExecutor(IIPersonalAccount _account, address _token, uint256 _fee) private {
         if (_fee == 0) {
             return;
         }
-        address token = Fees.feeToken();
-        require(token != address(0), FeeTokenNotSet(_fee));
-        _account.payExecutorFee(token, msg.sender, _fee);
-        emit ExecutorPaid(address(_account), msg.sender, token, _fee);
+        _account.payExecutorFee(_token, msg.sender, _fee);
+        emit ExecutorPaid(address(_account), msg.sender, _token, _fee);
     }
 }

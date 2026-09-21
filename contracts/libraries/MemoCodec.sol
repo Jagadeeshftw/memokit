@@ -37,9 +37,20 @@ import {IPersonalAccount} from "../interfaces/IPersonalAccount.sol";
  *        | 0xD0   | FSA     | (not ours -- executor pin)           | --           |
  *
  *      The instruction payload carried by 0xFD (inline) and committed to by 0xFC (hash) is
- *      `abi.encode(address sender, uint256 nonce, Call[] calls)` -- a three-element tuple at
- *      the top level, not a wrapped struct. That choice matters: it is what makes the encoding
- *      trivially reproducible by ethers' AbiCoder, and it is pinned by the conformance fixtures.
+ *      `abi.encode(address sender, uint256 nonce, address feeToken, uint256 feeAmount, Call[] calls)`
+ *      -- a five-element tuple at the top level, not a wrapped struct. That choice matters: it is
+ *      what makes the encoding trivially reproducible by ethers' AbiCoder, and it is pinned by the
+ *      conformance fixtures.
+ *
+ *      The executor fee. Phase 1 read the fee amount from header bytes 2..9 and its token from
+ *      controller configuration, which made the account hold a second asset just to pay for
+ *      the first. The fee is now part of the payload: it names its own token and amount, so it
+ *      is paid in whatever the instruction moves, and it is committed to by the same hash as the
+ *      calls it pays for. Header bytes 2..9 keep their place and width -- the header stays
+ *      byte-compatible with Flare's -- but are RESERVED and must be zero (see `MemoControllerFacet`,
+ *      which rejects anything else). They are not "the amount, in the payload's token": a second
+ *      copy of the number would be a second place for it to disagree with the first, and the
+ *      recovery opcodes have no payload to name a token at all.
  */
 library MemoCodec {
     /// @notice Length of the common header, in bytes.
@@ -147,15 +158,27 @@ library MemoCodec {
 
     /**
      * @notice Decode an instruction payload.
-     * @dev The payload is `abi.encode(address, uint256, Call[])`. A malformed payload reverts
-     *      inside `abi.decode`; callers treat that as an invalid instruction.
+     * @dev The payload is `abi.encode(address, uint256, address, uint256, Call[])`. A malformed
+     *      payload reverts inside `abi.decode`; callers treat that as an invalid instruction.
+     * @return _sender The account the instruction claims to act for.
+     * @return _nonce The account nonce it is bound to.
+     * @return _feeToken The token the executor is paid in. Ignored when `_feeAmount` is zero.
+     * @return _feeAmount The executor fee, in `_feeToken` base units. Zero means no fee.
+     * @return _calls The calls to execute, in order.
      */
     function decodeInstruction(bytes memory _payload)
         internal
         pure
-        returns (address _sender, uint256 _nonce, IPersonalAccount.Call[] memory _calls)
+        returns (
+            address _sender,
+            uint256 _nonce,
+            address _feeToken,
+            uint256 _feeAmount,
+            IPersonalAccount.Call[] memory _calls
+        )
     {
-        (_sender, _nonce, _calls) = abi.decode(_payload, (address, uint256, IPersonalAccount.Call[]));
+        (_sender, _nonce, _feeToken, _feeAmount, _calls) =
+            abi.decode(_payload, (address, uint256, address, uint256, IPersonalAccount.Call[]));
     }
 
     function _requireLength(bytes calldata _memo, uint8 _opcode, uint256 _expected) private pure {

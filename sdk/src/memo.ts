@@ -16,11 +16,17 @@ const coder = AbiCoder.defaultAbiCoder();
 /**
  * ABI type of the instruction payload.
  *
- * A three-element top-level tuple, not a wrapped struct. `abi.decode(payload, (address,
- * uint256, Call[]))` on the Solidity side reads exactly this. Wrapping it in a struct would
- * add a leading offset word and break the correspondence.
+ * A five-element top-level tuple, not a wrapped struct. `abi.decode(payload, (address,
+ * uint256, address, uint256, Call[]))` on the Solidity side reads exactly this. Wrapping it
+ * in a struct would add a leading offset word and break the correspondence.
+ *
+ * Elements: sender, nonce, feeToken, feeAmount, calls. The fee is inside the payload so the
+ * hash a 0xFC memo commits to covers it: an executor sees the preimage before acting, and
+ * must not be able to change what it is paid or in what.
  */
 export const INSTRUCTION_ABI_TYPES = [
+  "address",
+  "uint256",
   "address",
   "uint256",
   "tuple(address target, uint256 value, bytes data)[]",
@@ -44,11 +50,21 @@ function assertByte(value: number, label: string): void {
 /** ABI-encode an instruction. This is the payload 0xFD inlines and 0xFC commits to. */
 export function encodeInstruction(instruction: Instruction): string {
   assertUint(instruction.nonce, 256, "nonce");
+  assertUint(instruction.feeAmount, 256, "feeAmount");
   const calls = instruction.calls.map((c) => {
     assertUint(c.value, 256, "call.value");
     return [getAddress(c.target), c.value, c.data];
   });
-  return coder.encode([...INSTRUCTION_ABI_TYPES], [getAddress(instruction.sender), instruction.nonce, calls]);
+  return coder.encode(
+    [...INSTRUCTION_ABI_TYPES],
+    [
+      getAddress(instruction.sender),
+      instruction.nonce,
+      getAddress(instruction.feeToken),
+      instruction.feeAmount,
+      calls,
+    ],
+  );
 }
 
 /** Inverse of {@link encodeInstruction}. */
@@ -59,12 +75,18 @@ export function decodeInstruction(payload: string): Instruction {
   } catch (cause) {
     throw new MemoDecodeError(`instruction payload is not valid ABI: ${(cause as Error).message}`);
   }
-  const calls: Call[] = decoded[2].map((c: unknown[]) => ({
+  const calls: Call[] = decoded[4].map((c: unknown[]) => ({
     target: getAddress(c[0] as string),
     value: c[1] as bigint,
     data: c[2] as string,
   }));
-  return { sender: getAddress(decoded[0]), nonce: decoded[1] as bigint, calls };
+  return {
+    sender: getAddress(decoded[0]),
+    nonce: decoded[1] as bigint,
+    feeToken: getAddress(decoded[2]),
+    feeAmount: decoded[3] as bigint,
+    calls,
+  };
 }
 
 /** keccak256 of the ABI-encoded instruction: what a 0xFC memo carries. */
@@ -72,10 +94,16 @@ export function commitmentOf(instruction: Instruction): string {
   return keccak256(encodeInstruction(instruction));
 }
 
-function encodeHeader(header: MemoHeader): Uint8Array {
+function encodeHeader(header: MemoHeader, allowReservedFee: boolean): Uint8Array {
   assertByte(header.opcode, "opcode");
   assertByte(header.walletId, "walletId");
   assertUint(header.executorFee, 64, "executorFee");
+  if (header.executorFee !== 0n && !allowReservedFee) {
+    throw new MemoEncodeError(
+      `executorFee ${header.executorFee} is reserved and must be 0: the fee belongs in the ` +
+        `instruction (feeToken, feeAmount). The contract rejects a non-zero header fee.`,
+    );
+  }
   if ((RESERVED_OPCODES as readonly number[]).includes(header.opcode)) {
     throw new MemoEncodeError(`opcode 0x${header.opcode.toString(16)} is reserved`);
   }
@@ -99,9 +127,18 @@ function requireBytes32(value: string, label: string): string {
   return hexlify(bytes);
 }
 
+/** Options for {@link encodeMemo}. */
+export interface EncodeMemoOptions {
+  /**
+   * Permit a non-zero header executorFee. Off by default because the contract rejects it; on
+   * only for tests that need to build the memos the contract must reject.
+   */
+  allowReservedFee?: boolean;
+}
+
 /** Encode a memo to the raw bytes that go in the XRPL MemoData field. */
-export function encodeMemo(memo: Memo): string {
-  const header = encodeHeader(memo);
+export function encodeMemo(memo: Memo, options: EncodeMemoOptions = {}): string {
+  const header = encodeHeader(memo, options.allowReservedFee ?? false);
   switch (memo.kind) {
     case "execInline":
       return hexlify(concat([header, encodeInstruction(memo.instruction)]));
