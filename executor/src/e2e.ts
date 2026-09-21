@@ -36,7 +36,7 @@ import { encodeInstruction, encodeMemo, commitmentOf, type Instruction } from "@
 import { COSTON2, SOURCE_ID_TESTNET } from "./config.js";
 import { XrplTestnet, toTransactionId } from "./xrpl/pay.js";
 import { buildXrpPaymentResponse } from "./fdc/buildResponse.js";
-import { computeMic, encodeRequest } from "./fdc/encode.js";
+import { computeMic, encodeRequest, decodeResponseHex, toProofTuple } from "./fdc/encode.js";
 import { DaLayerClient } from "./fdc/daLayer.js";
 import { RoundClock } from "./fdc/rounds.js";
 
@@ -56,7 +56,9 @@ const ERC4626 = [
   "function symbol() view returns (string)",
 ];
 const MEMOKIT = [
-  "function execute(((bytes32[],(bytes32,bytes32,uint64,uint64,(bytes32,address),(uint64,uint64,string,bytes32,bytes32,bytes32,int256,int256,int256,int256,bool,bytes,bool,uint256,uint8)))) proof, bytes data) payable",
+  // IXRPPayment.Proof = (bytes32[] merkleProof, Response data). One level of nesting,
+  // not two -- an extra pair of parens here fails only at call time, with "array is wrong length".
+  "function execute((bytes32[],(bytes32,bytes32,uint64,uint64,(bytes32,address),(uint64,uint64,string,bytes32,bytes32,bytes32,int256,int256,int256,int256,bool,bytes,bool,uint256,uint8))) proof, bytes data) payable",
   "function nonceOf(address) view returns (uint256)",
   "function computeAccountAddress(string) view returns (address)",
   "function accountOf(string) view returns (address)",
@@ -182,9 +184,10 @@ async function main() {
 
   // --- step 5: wait for the round, then the proof -------------------------------------------
   const clock = new RoundClock(provider);
-  const block = await provider.getBlock(requestReceipt.blockNumber);
-  const votingRoundId = await clock.roundIdAt(Number(block!.timestamp));
-  console.log(`  voting round ${votingRoundId}`);
+  const votingRoundId = await clock.roundIdOfBlock(requestReceipt.blockNumber);
+  const latest = await clock.latestFinalisedRound();
+  console.log(`  voting round ${votingRoundId} (DA Layer is at ${latest?.votingRoundId ?? "?"})`);
+  console.log("  waiting for the round to finalise, then for the proof...");
 
   const da = new DaLayerClient();
   const proofResponse = await da.waitForProof(
@@ -196,26 +199,18 @@ async function main() {
   mark("fdc:proof-available");
 
   // --- step 6: execute ----------------------------------------------------------------------
-  const r = proofResponse.response as Record<string, any>;
-  const rb = r.responseBody;
-  const proofArg = [
-    proofResponse.proof,
-    [
-      r.attestationType,
-      r.sourceId,
-      BigInt(r.votingRound),
-      BigInt(r.lowestUsedTimestamp),
-      [r.requestBody.transactionId, r.requestBody.proofOwner],
-      [
-        BigInt(rb.blockNumber), BigInt(rb.blockTimestamp), rb.sourceAddress,
-        rb.sourceAddressHash, rb.receivingAddressHash, rb.intendedReceivingAddressHash,
-        BigInt(rb.spentAmount), BigInt(rb.intendedSpentAmount),
-        BigInt(rb.receivedAmount), BigInt(rb.intendedReceivedAmount),
-        rb.hasMemoData, rb.firstMemoData, rb.hasDestinationTag,
-        BigInt(rb.destinationTag), Number(rb.status),
-      ],
-    ],
-  ];
+  const attested = decodeResponseHex(proofResponse.response_hex);
+
+  // The attestation must describe the payment we actually sent. If FDC returned a memo that
+  // is not ours, something is wrong upstream and the contract would reject it anyway.
+  if (attested.responseBody.firstMemoData.toLowerCase() !== memo.toLowerCase()) {
+    throw new Error(
+      `attested memo ${attested.responseBody.firstMemoData} != sent memo ${memo}`,
+    );
+  }
+  console.log(`  attested memo matches, voting round ${attested.votingRound}`);
+
+  const proofArg = toProofTuple(proofResponse.proof, attested);
 
   const execTx = await memokit.execute(proofArg, payload);
   const execReceipt = await execTx.wait();

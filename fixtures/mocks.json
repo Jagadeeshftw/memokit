@@ -1,0 +1,7 @@
+{
+  "chainId": 114,
+  "asset": "0x41BbB3B8C1e359D7E8DDCBb3AD6EE140bf82b1e3",
+  "vault": "0x6ed3519C362d7c97198fcdA8822eba67176590ed",
+  "fundedAccount": "0x823d7dAe9e087D4c96225DE6385376a990067d4e",
+  "fundedAmount": "100000000"
+}

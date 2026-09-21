@@ -10,8 +10,12 @@ import { DA_LAYER } from "../config.js";
 export interface DaProofResponse {
   /** Merkle proof for the attestation, ready to hand to the contract. */
   proof: string[];
-  /** The attestation response, as the DA Layer serialises it. */
-  response: Record<string, unknown>;
+  /**
+   * `abi.encode(Response)`. The `-raw` endpoint returns the encoding rather than a JSON
+   * object; `fdc/encode.ts::decodeResponseHex` turns it into a typed response.
+   */
+  response_hex: string;
+  attestation_type: string;
 }
 
 export class DaLayerClient {
@@ -55,7 +59,7 @@ export class DaLayerClient {
     let lastBody = "";
     while (Date.now() < deadlineMs) {
       const { status, body } = await this.proofByRequestRound(votingRoundId, abiEncodedRequest);
-      if (status === 200 && "proof" in body) {
+      if (status === 200 && "proof" in body && "response_hex" in body) {
         return body;
       }
       lastStatus = status;

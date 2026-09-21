@@ -115,3 +115,61 @@ export function encodeRequest(
 }
 
 export const ZERO_HASH = "0x" + "00".repeat(32);
+
+/**
+ * Decode the `response_hex` the DA Layer's `-raw` endpoint returns.
+ *
+ * @dev The raw endpoint hands back `abi.encode(Response)` rather than a JSON object, which
+ *      suits us: decoding it with our own {@link RESPONSE_ABI} is one more check that the
+ *      transcription from `IXRPPayment.sol` is right, and the result goes straight into the
+ *      contract call with no field-name guessing in between.
+ */
+export function decodeResponseHex(responseHex: string): XrpPaymentResponse {
+  const [d] = coder.decode([RESPONSE_ABI], responseHex);
+  const rb = d[5];
+  return {
+    attestationType: d[0],
+    sourceId: d[1],
+    votingRound: d[2],
+    lowestUsedTimestamp: d[3],
+    requestBody: { transactionId: d[4][0], proofOwner: d[4][1] },
+    responseBody: {
+      blockNumber: rb[0],
+      blockTimestamp: rb[1],
+      sourceAddress: rb[2],
+      sourceAddressHash: rb[3],
+      receivingAddressHash: rb[4],
+      intendedReceivingAddressHash: rb[5],
+      spentAmount: rb[6],
+      intendedSpentAmount: rb[7],
+      receivedAmount: rb[8],
+      intendedReceivedAmount: rb[9],
+      hasMemoData: rb[10],
+      firstMemoData: rb[11],
+      hasDestinationTag: rb[12],
+      destinationTag: rb[13],
+      status: Number(rb[14]),
+    },
+  };
+}
+
+/** The response as the contract's `IXRPPayment.Proof` tuple expects it. */
+export function toProofTuple(proof: string[], response: XrpPaymentResponse): unknown[] {
+  const r = response.responseBody;
+  return [
+    proof,
+    [
+      response.attestationType,
+      response.sourceId,
+      response.votingRound,
+      response.lowestUsedTimestamp,
+      [response.requestBody.transactionId, response.requestBody.proofOwner],
+      [
+        r.blockNumber, r.blockTimestamp, r.sourceAddress, r.sourceAddressHash,
+        r.receivingAddressHash, r.intendedReceivingAddressHash,
+        r.spentAmount, r.intendedSpentAmount, r.receivedAmount, r.intendedReceivedAmount,
+        r.hasMemoData, r.firstMemoData, r.hasDestinationTag, r.destinationTag, r.status,
+      ],
+    ],
+  ];
+}
