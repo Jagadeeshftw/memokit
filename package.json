@@ -12,7 +12,8 @@
     "test": "npm run test -w @memokit/sdk && npm run test -w @memokit/executor",
     "fixtures": "npm run fixtures -w @memokit/sdk",
     "forge:build": "forge build",
-    "forge:test": "forge test -vv"
+    "forge:test": "forge test -vv",
+    "test:fork": "FOUNDRY_PROFILE=fork forge test -vv"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -17,6 +17,9 @@ optimizer_runs = 200
 bytecode_hash = "none"
 cbor_metadata = false
 
+# Fork tests need the network and ffi; they run under `FOUNDRY_PROFILE=fork` (npm run test:fork).
+no_match_path = "test/fork/**"
+
 fs_permissions = [
     { access = "read-write", path = "./fixtures" },
     # Read-only: SelectorCollision.t.sol enumerates memokit's selectors from the compiled
@@ -27,3 +30,13 @@ fs_permissions = [
 [fmt]
 line_length = 110
 tab_width = 4
+
+[rpc_endpoints]
+flare = "https://flare-api.flare.network/ext/C/rpc"
+
+# Fork tests: Flare mainnet at a pinned block, proofs built by the SDK through ffi.
+# Simulated verification -- see test/fork/ForkBase.t.sol. ffi stays off in every other profile.
+[profile.fork]
+ffi = true
+match_path = "test/fork/**"
+no_match_path = "test/__none__/**"

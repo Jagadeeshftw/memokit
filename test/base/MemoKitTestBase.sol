@@ -55,7 +55,18 @@ abstract contract MemoKitTestBase is Test {
 
     function setUp() public virtual {
         _installFlareInfrastructure();
+        _deployMemoKit(SOURCE_ID, RECEIVING);
 
+        fxrp = new MockERC20("Test FXRP", "FTestXRP", 6);
+        vault = new MockERC4626(fxrp, "TESTearnXRP", "TESTearnXRP");
+
+        // XRPL block timestamps below are absolute; start the chain clock somewhere sane.
+        vm.warp(1_750_000_000);
+    }
+
+    /// @dev Deploys and initialises a memokit diamond in the current EVM. Split out of `setUp` so a
+    ///      fork test can deploy the same thing next to real contracts, with no mocks etched.
+    function _deployMemoKit(bytes32 _sourceId, string memory _receiving) internal {
         DiamondCutFacet cutFacet = new DiamondCutFacet();
         diamond = new Diamond(owner, address(cutFacet));
 
@@ -78,11 +89,8 @@ abstract contract MemoKitTestBase is Test {
         accounts = AccountsFacet(address(diamond));
         loupe = DiamondLoupeFacet(address(diamond));
 
-        fxrp = new MockERC20("Test FXRP", "FTestXRP", 6);
-        vault = new MockERC4626(fxrp, "TESTearnXRP", "TESTearnXRP");
-
         string[] memory receiving = new string[](1);
-        receiving[0] = RECEIVING;
+        receiving[0] = _receiving;
         address[] memory pausers = new address[](1);
         pausers[0] = pauser;
 
@@ -96,7 +104,7 @@ abstract contract MemoKitTestBase is Test {
             AdminFacet.InitParams({
                 owner: owner,
                 accountBeacon: address(beacon),
-                sourceId: SOURCE_ID,
+                sourceId: _sourceId,
                 validityDurationSeconds: VALIDITY_SECONDS,
                 timelockDurationSeconds: TIMELOCK_SECONDS,
                 receivingAddresses: receiving,
@@ -104,9 +112,6 @@ abstract contract MemoKitTestBase is Test {
                 unpausers: pausers
             })
         );
-
-        // XRPL block timestamps below are absolute; start the chain clock somewhere sane.
-        vm.warp(1_750_000_000);
     }
 
     function _installFlareInfrastructure() private {
