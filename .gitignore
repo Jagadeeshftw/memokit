@@ -2,7 +2,6 @@ node_modules/
 out/
 cache/
 artifacts/
-lib/
 .env
 .env.local
 *.log
