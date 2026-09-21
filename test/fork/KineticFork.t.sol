@@ -7,6 +7,7 @@ import {IXRPPayment} from "flare-periphery/coston2/IXRPPayment.sol";
 import {ForkBase} from "./ForkBase.t.sol";
 import {IKComptroller, IKToken} from "./ForkInterfaces.sol";
 import {IPersonalAccount} from "../../contracts/interfaces/IPersonalAccount.sol";
+import {IPostConditions} from "../../contracts/interfaces/IPostConditions.sol";
 import {IMemoController} from "../../contracts/interfaces/IMemoController.sol";
 
 /**
@@ -37,28 +38,37 @@ contract KineticForkTest is ForkBase {
         deal(SFLR, account, COLLATERAL + FEE);
     }
 
-    /// @dev approve -> mint -> enterMarkets -> borrow -> (assertion). See `_borrowCalls`.
-    function _borrowCalls(uint256 _borrow, bool _withAssertion)
+    /// @dev approve -> mint -> enterMarkets -> borrow. Four calls, always the same four: what
+    ///      the instruction is *for* is now stated separately, as a post-condition.
+    function _borrowCalls(uint256 _borrow)
         internal
         view
         returns (IPersonalAccount.Call[] memory calls)
     {
-        calls = new IPersonalAccount.Call[](_withAssertion ? 5 : 4);
+        calls = new IPersonalAccount.Call[](4);
         calls[0] = _call(SFLR, abi.encodeCall(IERC20.approve, (address(K_SFLR), COLLATERAL)));
         calls[1] = _call(address(K_SFLR), abi.encodeCall(IKToken.mint, (COLLATERAL)));
         address[] memory enter = new address[](1);
         enter[0] = address(K_SFLR);
         calls[2] = _call(address(COMPTROLLER), abi.encodeCall(IKComptroller.enterMarkets, (enter)));
         calls[3] = _call(address(K_USDT0), abi.encodeCall(IKToken.borrow, (_borrow)));
-        // Compound-family markets report most failures as a nonzero RETURN VALUE, not a revert, so a
-        // Call[] that ends at `borrow` cannot tell that it failed. Transferring the borrowed amount
-        // to the account itself is a balance assertion in one ordinary call: it reverts, and so
-        // unwinds the whole instruction, unless the account really holds `_borrow` USDT0.
-        if (_withAssertion) calls[4] = _call(USDT0, abi.encodeCall(IERC20.transfer, (account, _borrow)));
     }
 
+    /**
+     * @dev Phase 2 asserted the borrow landed by appending a USDT0 self-transfer: a trick that
+     *      reverts unless the account really holds the amount. It worked, but it cost a call, it
+     *      only expressed one shape of claim, and reading the instruction gave no hint that the
+     *      fifth call was an assertion rather than part of the operation.
+     *
+     *      A post-condition says the same thing directly, costs no call, and names the failure
+     *      when it fires.
+     */
     function _instructionFor(uint256 _borrow, bool _withAssertion) internal view returns (bytes memory) {
-        return _instructionWithFee(account, 0, SFLR, FEE, _borrowCalls(_borrow, _withAssertion));
+        IPostConditions.PostCondition[] memory conditions = _withAssertion
+            ? _conditions(_pcErc20Delta(USDT0, account, _borrow))
+            : new IPostConditions.PostCondition[](0);
+
+        return _instructionWith(account, 0, SFLR, FEE, _borrowCalls(_borrow), conditions);
     }
 
     // --- what is on chain ----------------------------------------------------------------
@@ -87,7 +97,7 @@ contract KineticForkTest is ForkBase {
         uint256 executorBefore = IERC20(SFLR).balanceOf(executor);
         uint256 gasBefore = gasleft();
         _deliver(_instructionFor(BORROW, true));
-        emit log_named_uint("gas: execute (deposit + enter + borrow + assertion + fee)", gasBefore - gasleft());
+        emit log_named_uint("gas: execute (deposit + enter + borrow + post-condition + fee)", gasBefore - gasleft());
 
         // kToken balance: what `mint` credits is amount * 1e18 / exchangeRate, rounded down.
         uint256 kBalance = K_SFLR.balanceOf(account);
@@ -148,7 +158,17 @@ contract KineticForkTest is ForkBase {
         IXRPPayment.Proof memory proof = _sdkProof(txId, _commitMemo(payload), block.timestamp - SIMULATED_LATENCY);
 
         vm.prank(executor);
-        vm.expectRevert(); // CallFailed(4, ...): the balance assertion, not the borrow, is what fails
+        // The post-condition names the failure precisely: index 0, the USDT0 delta, wanted
+        // TOO_MUCH and got nothing. Compare with Phase 2's opaque `CallFailed(4, ...)`.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPostConditions.PostConditionFailed.selector,
+                0,
+                IPostConditions.Kind.Erc20DeltaAtLeast,
+                TOO_MUCH,
+                0
+            )
+        );
         controller.execute(proof, payload);
 
         assertFalse(controller.isXrplTransactionConsumed(txId), "not consumed: the proof stays usable");

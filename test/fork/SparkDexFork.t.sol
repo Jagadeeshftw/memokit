@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IXRPPayment} from "flare-periphery/coston2/IXRPPayment.sol";
 
 import {ForkBase} from "./ForkBase.t.sol";
@@ -10,6 +11,9 @@ import {MemoCodec} from "../../contracts/libraries/MemoCodec.sol";
 import {Execution} from "../../contracts/libraries/Execution.sol";
 import {IMemoController} from "../../contracts/interfaces/IMemoController.sol";
 import {IPersonalAccount} from "../../contracts/interfaces/IPersonalAccount.sol";
+import {IPostConditions} from "../../contracts/interfaces/IPostConditions.sol";
+import {FtsoV2Interface} from "flare-periphery/coston2/FtsoV2Interface.sol";
+import {ContractRegistry} from "flare-periphery/coston2/ContractRegistry.sol";
 
 /**
  * @title SparkDexForkTest
@@ -287,5 +291,135 @@ contract SparkDexForkTest is ForkBase {
         assertEq(controller.nonceOf(account), 0, "but the nonce did not move");
         assertEq(IERC20(USDT0).balanceOf(account), 0, "and no swap ran");
         assertEq(IERC20(FXRP).balanceOf(account), AMOUNT_IN + FEE);
+    }
+
+    // --- FTSOv2 rate bound, against the real oracle -------------------------------------
+
+    /**
+     * @dev Unlike everything else in this file's setUp, FTSOv2 is NOT mocked here. The fork is
+     *      Flare mainnet, `FtsoV2` is live at the pinned block, and XRP/USD and USDT/USD are
+     *      read for real. Only FDC verification is simulated.
+     */
+    function _ftsoBound(uint256 _amountIn, uint16 _bps)
+        internal
+        view
+        returns (IPostConditions.FtsoBound memory)
+    {
+        return IPostConditions.FtsoBound({
+            feedIdIn: _feedId("XRP/USD"),
+            feedIdOut: _feedId("USDT/USD"),
+            decimalsIn: 6, // FXRP
+            decimalsOut: IERC20Metadata(USDT0).decimals(),
+            amountIn: _amountIn,
+            maxDeviationBps: _bps,
+            maxFeedAgeSeconds: 3600
+        });
+    }
+
+    function test_theRealOracleAgreesWithTheRealPoolAtTheHeadOfTheFork() public {
+        // Sanity: at the pinned block the pool and the oracle are within 1% of each other, so a
+        // 1% bound is a meaningful constraint rather than one that never binds.
+        uint256 quoted = _quote(AMOUNT_IN);
+        emit log_named_uint("pool quote for 1,000 FXRP (USDT0)", quoted);
+
+        bytes memory payload = _instructionWith(
+            account,
+            0,
+            FXRP,
+            FEE,
+            _swapCalls(AMOUNT_IN, 0, block.timestamp + DEADLINE_SECONDS),
+            _conditions(_pcFtsoRate(USDT0, account, _ftsoBound(AMOUNT_IN, 100)))
+        );
+        _deliver(payload);
+        assertGt(IERC20(USDT0).balanceOf(account), 0, "swap landed inside the oracle bound");
+    }
+
+    /**
+     * @dev The case the absolute minimum alone lets through.
+     *
+     *      The user signs a deliberately loose floor -- they only wanted protection from a
+     *      catastrophic fill, not a tight one, because they know 150 s of market movement is
+     *      coming. Then the pool is manipulated. The fill clears the loose floor and is still a
+     *      bad trade. The oracle, which the manipulation did not touch, is what catches it.
+     */
+    function test_aManipulatedPoolPassesTheLooseFloorAndFailsTheOracleBound() public {
+        uint256 fairOut = _quote(AMOUNT_IN);
+        uint256 looseFloor = fairOut / 2; // 50% below fair: "anything but a disaster"
+
+        uint256 dumped = _movePriceBelow((fairOut * 80) / 100); // push ~20%+ below fair
+        emit log_named_uint("FXRP dumped into the pool to move it", dumped);
+
+        uint256 manipulatedOut = _quote(AMOUNT_IN);
+        emit log_named_uint("fair out (USDT0)", fairOut);
+        emit log_named_uint("manipulated out (USDT0)", manipulatedOut);
+        assertLt(manipulatedOut, fairOut, "pool moved");
+        assertGt(manipulatedOut, looseFloor, "but still above the loose floor");
+
+        // 1. Floor alone: the bad fill is accepted.
+        bytes memory floorOnly = _instructionWith(
+            account,
+            0,
+            FXRP,
+            FEE,
+            _swapCalls(AMOUNT_IN, looseFloor, block.timestamp + DEADLINE_SECONDS),
+            new IPostConditions.PostCondition[](0)
+        );
+        _deliver(floorOnly);
+        uint256 got = IERC20(USDT0).balanceOf(account);
+        assertGt(got, looseFloor, "the loose floor let the manipulated fill through");
+        emit log_named_uint("accepted with the floor alone (USDT0)", got);
+
+        // 2. The identical trade with an oracle bound: refused.
+        _fundFxrp(account, AMOUNT_IN + FEE);
+        bytes memory bounded = _instructionWith(
+            account,
+            1,
+            FXRP,
+            FEE,
+            _swapCalls(AMOUNT_IN, looseFloor, block.timestamp + DEADLINE_SECONDS),
+            _conditions(_pcFtsoRate(USDT0, account, _ftsoBound(AMOUNT_IN, 100)))
+        );
+        bytes32 txId = _nextTxId();
+        IXRPPayment.Proof memory proof =
+            _sdkProof(txId, _commitMemo(bounded), block.timestamp - SIMULATED_LATENCY);
+
+        vm.prank(executor);
+        vm.expectRevert(); // RateBelowOracleBound
+        controller.execute(proof, bounded);
+
+        assertFalse(controller.isXrplTransactionConsumed(txId), "proof stays usable");
+        assertEq(controller.nonceOf(account), 1, "nonce unchanged by the refused attempt");
+    }
+
+    /**
+     * @notice Why the stale-feed branch is NOT tested here, recorded as a test rather than a note.
+     *
+     * @dev FTSOv2's `getFeedById` derives its timestamp from the current voting epoch, which is
+     *      computed from `block.timestamp`. On a fork that means the feed timestamp moves with
+     *      the clock: warp two hours forward and the feed reports itself as two hours newer, so
+     *      its age is always zero and `maxFeedAgeSeconds` never binds.
+     *
+     *      An earlier version of this file "tested" staleness by warping and expecting a revert.
+     *      It failed, which is the only reason the behaviour was found rather than assumed. The
+     *      branch is covered against a mock in `test/FtsoRateBound.t.sol`, where the feed
+     *      timestamp can be held still; what is asserted here is the fork limitation itself, so
+     *      nobody adds that test back believing it proves something.
+     */
+    function test_onAForkAFeedCanNeverLookStale() public {
+        FtsoV2Interface ftsoV2 = ContractRegistry.getFtsoV2();
+        bytes21 xrp = _feedId("XRP/USD");
+
+        (,, uint64 before_) = ftsoV2.getFeedById(xrp);
+        assertEq(block.timestamp - before_, 0, "fresh at the fork block");
+
+        vm.warp(block.timestamp + 2 hours);
+        (,, uint64 after_) = ftsoV2.getFeedById(xrp);
+
+        assertEq(
+            block.timestamp - after_,
+            0,
+            "the feed timestamp tracks block.timestamp: age stays zero however far we warp"
+        );
+        assertGt(after_, before_, "and it moved forward with the clock");
     }
 }
