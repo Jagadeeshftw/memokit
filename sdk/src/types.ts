@@ -63,6 +63,68 @@ export interface Instruction {
    */
   feeAmount: bigint;
   calls: Call[];
+  /**
+   * Assertions evaluated after every call, before the fee is paid. A failure reverts the whole
+   * execution, so the XRPL transaction is not consumed and the proof can be resubmitted.
+   * Optional and defaults to none, but an instruction whose target can fail softly should
+   * always carry one -- see the Kinetic note in PHASE3.md.
+   */
+  postConditions?: PostCondition[];
+}
+
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+/** Mirrors `PostConditions.MAX_POST_CONDITIONS`. */
+export const MAX_POST_CONDITIONS = 32;
+
+/**
+ * What a post-condition asserts. Values must match `IPostConditions.Kind`.
+ *
+ * Post-conditions exist because Phase 2 found that Compound-family markets report most
+ * failures as a nonzero return value rather than a revert, so a call can "succeed" while doing
+ * nothing. A post-condition states what the instruction was *for*, separately from how it was
+ * done, and lives inside the committed payload where no executor can weaken it.
+ */
+export enum PostConditionKind {
+  Erc20BalanceAtLeast = 0,
+  Erc20DeltaAtLeast = 1,
+  NativeBalanceAtLeast = 2,
+  NativeDeltaAtLeast = 3,
+  FtsoRateAtLeast = 4,
+}
+
+/** One assertion, evaluated after all calls and before the executor is paid. */
+export interface PostCondition {
+  kind: PostConditionKind;
+  /** ERC-20 for token kinds, the OUTPUT token for `FtsoRateAtLeast`, unset for native kinds. */
+  token: string;
+  /** Whose balance is measured. Any address, so a payout can assert each recipient was paid. */
+  subject: string;
+  /** Absolute floor, or minimum delta, in base units. Unused by `FtsoRateAtLeast`. */
+  threshold: bigint;
+  /** ABI-encoded {@link FtsoBound} for `FtsoRateAtLeast`; `"0x"` otherwise. */
+  extra?: string;
+}
+
+/**
+ * Bounds a realised swap rate against an FTSOv2 feed at execution time.
+ *
+ * Feed decimals are deliberately absent: they are read from the feed on chain, because they
+ * vary by feed *and by network* (USDT/USD is 6 decimals on Coston2 and 5 on Flare mainnet).
+ * Token decimals are here, because they are a property of the token, not of the oracle.
+ */
+export interface FtsoBound {
+  /** bytes21 FTSOv2 feed id for the input token, e.g. `XRP/USD`. */
+  feedIdIn: string;
+  /** bytes21 FTSOv2 feed id for the output token. */
+  feedIdOut: string;
+  decimalsIn: number;
+  decimalsOut: number;
+  amountIn: bigint;
+  /** How far below the oracle rate the fill may land, in basis points. */
+  maxDeviationBps: number;
+  /** Reject if either feed is staler than this, in seconds. */
+  maxFeedAgeSeconds: bigint;
 }
 
 /** Fields every memo carries. */

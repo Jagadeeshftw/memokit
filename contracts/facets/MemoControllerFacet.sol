@@ -8,6 +8,8 @@ import {IPersonalAccount} from "../interfaces/IPersonalAccount.sol";
 import {Accounts} from "../libraries/Accounts.sol";
 import {Execution} from "../libraries/Execution.sol";
 import {MemoCodec} from "../libraries/MemoCodec.sol";
+import {PostConditions} from "../libraries/PostConditions.sol";
+import {IPostConditions} from "../interfaces/IPostConditions.sol";
 import {Pause} from "../libraries/Pause.sol";
 import {Proofs} from "../libraries/Proofs.sol";
 
@@ -109,14 +111,15 @@ contract MemoControllerFacet is IMemoController {
         IIPersonalAccount _account,
         bytes32 _transactionId,
         uint8 _opcode,
-        bytes memory _payload
+        bytes calldata _payload
     ) private {
         (
             address sender,
             uint256 nonce,
             address feeToken,
             uint256 feeAmount,
-            IPersonalAccount.Call[] memory calls
+            IPersonalAccount.Call[] memory calls,
+            IPostConditions.PostCondition[] memory postConditions
         ) = MemoCodec.decodeInstruction(_payload);
 
         require(sender == address(_account), SenderMismatch(address(_account), sender));
@@ -127,10 +130,21 @@ contract MemoControllerFacet is IMemoController {
         uint256 fee = Execution.resolveFee(address(_account), _transactionId, feeAmount);
         require(fee == 0 || feeToken != address(0), InvalidFee(feeToken, fee));
 
+        // Balances any delta condition is measured against, read before anything moves.
+        uint256[] memory before = PostConditions.snapshot(postConditions);
+
         _account.executeUserOp{value: msg.value}(calls);
+
+        // Between the calls and the fee. A post-condition that fails reverts the whole
+        // execution -- calls, nonce, replay mark and all -- and the executor is not paid for
+        // having delivered an instruction that did not do what it promised.
+        PostConditions.check(postConditions, before);
+
         _payExecutor(_account, feeToken, fee);
 
-        emit InstructionExecuted(address(_account), _transactionId, _opcode, nonce, calls.length);
+        emit InstructionExecuted(
+            address(_account), _transactionId, _opcode, nonce, calls.length, postConditions.length
+        );
     }
 
     /**

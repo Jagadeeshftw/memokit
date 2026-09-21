@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {IPersonalAccount} from "../interfaces/IPersonalAccount.sol";
+import {IPostConditions} from "../interfaces/IPostConditions.sol";
 
 /**
  * @title MemoCodec
@@ -36,11 +37,26 @@ import {IPersonalAccount} from "../interfaces/IPersonalAccount.sol";
  *        | 0xD1   | FSA     | (not ours -- executor unpin)         | --           |
  *        | 0xD0   | FSA     | (not ours -- executor pin)           | --           |
  *
- *      The instruction payload carried by 0xFD (inline) and committed to by 0xFC (hash) is
- *      `abi.encode(address sender, uint256 nonce, address feeToken, uint256 feeAmount, Call[] calls)`
- *      -- a five-element tuple at the top level, not a wrapped struct. That choice matters: it is
- *      what makes the encoding trivially reproducible by ethers' AbiCoder, and it is pinned by the
- *      conformance fixtures.
+ *      The instruction payload carried by 0xFD (inline) and committed to by 0xFC (hash) is a
+ *      single version byte followed by an ABI-encoded tuple:
+ *
+ *          byte 0   : payload version
+ *          bytes 1..: abi.encode(address sender, uint256 nonce, address feeToken,
+ *                                uint256 feeAmount, Call[] calls, PostCondition[] postConditions)
+ *
+ *      A top-level tuple, not a wrapped struct: that is what makes the encoding trivially
+ *      reproducible by ethers' AbiCoder, and it is pinned by the conformance fixtures.
+ *
+ *      Versioning lives HERE, in the committed payload, and never in the 10-byte header. The
+ *      header stays byte-compatible with Flare's, and it is also the wrong place: the header is
+ *      chosen by the wallet, while the payload shape is chosen by whoever built the instruction.
+ *
+ *      Version 1 was the Phase 1/2 payload and had no version byte. It is no longer accepted.
+ *      It does not need a special case to reject: a v1 payload begins with the first word of a
+ *      left-padded `address`, so its leading byte is always 0x00, and version 0 is not a version
+ *      this decoder knows. Every v1 payload therefore fails with `UnsupportedPayloadVersion(0)`
+ *      rather than mis-decoding into something plausible. The v1 fixtures are kept as regression
+ *      vectors that assert exactly that.
  *
  *      The executor fee. Phase 1 read the fee amount from header bytes 2..9 and its token from
  *      controller configuration, which made the account hold a second asset just to pay for
@@ -55,6 +71,9 @@ import {IPersonalAccount} from "../interfaces/IPersonalAccount.sol";
 library MemoCodec {
     /// @notice Length of the common header, in bytes.
     uint256 internal constant HEADER_LENGTH = 10;
+
+    /// @notice Current payload version. Byte 0 of every instruction payload.
+    uint8 internal constant PAYLOAD_VERSION = 2;
 
     /// @notice Execute an instruction carried inline in the memo.
     uint8 internal constant OP_EXEC_INLINE = 0xFD;
@@ -92,6 +111,11 @@ library MemoCodec {
     error UnknownOpcode(uint8 opcode);
     /// @notice Reverts when the opcode falls in memokit's reserved band.
     error ReservedOpcode(uint8 opcode);
+    /// @notice Reverts when the payload's version byte is not one this decoder implements.
+    /// @dev Version 0 means "a Phase 1/2 payload", which began with a zero byte by construction.
+    error UnsupportedPayloadVersion(uint8 version);
+    /// @notice Reverts when the payload is too short to even carry a version byte.
+    error PayloadTooShort(uint256 length);
 
     /**
      * @notice Decode the 10-byte common header.
@@ -158,15 +182,17 @@ library MemoCodec {
 
     /**
      * @notice Decode an instruction payload.
-     * @dev The payload is `abi.encode(address, uint256, address, uint256, Call[])`. A malformed
-     *      payload reverts inside `abi.decode`; callers treat that as an invalid instruction.
+     * @dev Byte 0 is the version; the rest is `abi.encode(...)`. An unknown version is rejected
+     *      before the ABI decode is attempted, so the error names the real problem rather than
+     *      surfacing as an opaque decode failure.
      * @return _sender The account the instruction claims to act for.
      * @return _nonce The account nonce it is bound to.
      * @return _feeToken The token the executor is paid in. Ignored when `_feeAmount` is zero.
      * @return _feeAmount The executor fee, in `_feeToken` base units. Zero means no fee.
      * @return _calls The calls to execute, in order.
+     * @return _postConditions Assertions checked after the calls, before the fee is paid.
      */
-    function decodeInstruction(bytes memory _payload)
+    function decodeInstruction(bytes calldata _payload)
         internal
         pure
         returns (
@@ -174,11 +200,31 @@ library MemoCodec {
             uint256 _nonce,
             address _feeToken,
             uint256 _feeAmount,
-            IPersonalAccount.Call[] memory _calls
+            IPersonalAccount.Call[] memory _calls,
+            IPostConditions.PostCondition[] memory _postConditions
         )
     {
-        (_sender, _nonce, _feeToken, _feeAmount, _calls) =
-            abi.decode(_payload, (address, uint256, address, uint256, IPersonalAccount.Call[]));
+        require(_payload.length >= 1, PayloadTooShort(_payload.length));
+        uint8 version = uint8(_payload[0]);
+        require(version == PAYLOAD_VERSION, UnsupportedPayloadVersion(version));
+
+        (_sender, _nonce, _feeToken, _feeAmount, _calls, _postConditions) = abi.decode(
+            _payload[1:],
+            (
+                address,
+                uint256,
+                address,
+                uint256,
+                IPersonalAccount.Call[],
+                IPostConditions.PostCondition[]
+            )
+        );
+    }
+
+    /// @notice Version byte of a payload, without decoding the rest of it.
+    function payloadVersion(bytes calldata _payload) internal pure returns (uint8) {
+        require(_payload.length >= 1, PayloadTooShort(_payload.length));
+        return uint8(_payload[0]);
     }
 
     function _requireLength(bytes calldata _memo, uint8 _opcode, uint256 _expected) private pure {

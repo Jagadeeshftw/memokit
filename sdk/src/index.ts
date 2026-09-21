@@ -8,6 +8,7 @@
 // level -- MIC construction, the FDC ABI, the response builder -- is `@memokit/sdk/fdc`.
 export * from "./types.js";
 export * from "./memo.js";
+export * from "./postConditions.js";
 export * from "./networks.js";
 export * from "./deadline.js";
 export {

@@ -10,7 +10,16 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { keccak256, toBeHex, zeroPadValue } from "ethers";
-import { encodeInstruction, encodeMemo, commitmentOf } from "../src/memo.js";
+import { encodeInstruction, encodeMemo, commitmentOf, PAYLOAD_VERSION } from "../src/memo.js";
+import {
+  erc20BalanceAtLeast,
+  erc20DeltaAtLeast,
+  nativeBalanceAtLeast,
+  nativeDeltaAtLeast,
+  ftsoRateAtLeast,
+  feedId,
+} from "../src/postConditions.js";
+import { MAX_POST_CONDITIONS } from "../src/types.js";
 import { Opcode, type Instruction, type Memo } from "../src/types.js";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
@@ -36,6 +45,17 @@ interface FixtureCase {
   feeToken: string;
   feeAmount: string;
   callCount: number;
+  /** Byte 0 of the payload. 2 for every case here; the v1 vectors live in memo-wire-v1.json. */
+  payloadVersion: number;
+  postConditionCount: number;
+  /** Per-condition fields, so the Solidity decoder can be checked field by field. */
+  postConditions: Array<{
+    kind: number;
+    token: string;
+    subject: string;
+    threshold: string;
+    extra: string;
+  }>;
   commitment: string;
   targetTransactionId: string;
   newNonce: string;
@@ -59,6 +79,9 @@ function base(name: string, memo: Memo): FixtureCase {
     feeToken: ZERO_ADDR,
     feeAmount: hex(0n, 32),
     callCount: 0,
+    payloadVersion: PAYLOAD_VERSION,
+    postConditionCount: 0,
+    postConditions: [],
     commitment: ZERO_32,
     targetTransactionId: ZERO_32,
     newNonce: hex(0n, 32),
@@ -77,6 +100,15 @@ function execInline(name: string, walletId: number, fee: bigint, instruction: In
     feeToken: instruction.feeToken,
     feeAmount: hex(instruction.feeAmount, 32),
     callCount: instruction.calls.length,
+    payloadVersion: PAYLOAD_VERSION,
+    postConditionCount: (instruction.postConditions ?? []).length,
+    postConditions: (instruction.postConditions ?? []).map((c) => ({
+      kind: c.kind,
+      token: c.token,
+      subject: c.subject,
+      threshold: hex(c.threshold, 32),
+      extra: c.extra ?? "0x",
+    })),
     commitment: keccak256(payload),
   };
 }
@@ -92,6 +124,15 @@ function execCommit(name: string, walletId: number, fee: bigint, instruction: In
     feeToken: instruction.feeToken,
     feeAmount: hex(instruction.feeAmount, 32),
     callCount: instruction.calls.length,
+    payloadVersion: PAYLOAD_VERSION,
+    postConditionCount: (instruction.postConditions ?? []).length,
+    postConditions: (instruction.postConditions ?? []).map((c) => ({
+      kind: c.kind,
+      token: c.token,
+      subject: c.subject,
+      threshold: hex(c.threshold, 32),
+      extra: c.extra ?? "0x",
+    })),
     commitment,
   };
 }
@@ -143,7 +184,62 @@ const manyCalls: Instruction = {
 
 const MAX_U64 = (1n << 64n) - 1n;
 
+const TOKEN_A = "0x6666666666666666666666666666666666666666";
+const TOKEN_B = "0x7777777777777777777777777777777777777777";
+
+/** One of each simple post-condition kind, including deltas on a third-party recipient. */
+const withEveryKind: Instruction = {
+  sender: ACC_A,
+  nonce: 9n,
+  feeToken: TOKEN_A,
+  feeAmount: 25_000n,
+  calls: [{ target: TOKEN_A, value: 0n, data: "0xa9059cbb" }],
+  postConditions: [
+    erc20BalanceAtLeast(TOKEN_A, ACC_A, 1_000_000n),
+    erc20DeltaAtLeast(TOKEN_B, "0x8888888888888888888888888888888888888888", 500_000n),
+    nativeBalanceAtLeast(ACC_A, 1n),
+    nativeDeltaAtLeast("0x9999999999999999999999999999999999999999", 2n),
+  ],
+};
+
+/** A swap bounded both absolutely and against FTSOv2 -- the two protections together. */
+const withFtsoBound: Instruction = {
+  sender: ACC_B,
+  nonce: 0n,
+  feeToken: TOKEN_B,
+  feeAmount: 1_000n,
+  calls: [{ target: TOKEN_A, value: 0n, data: "0x095ea7b3" }],
+  postConditions: [
+    erc20DeltaAtLeast(TOKEN_B, ACC_B, 990_000n),
+    ftsoRateAtLeast(TOKEN_B, ACC_B, {
+      feedIdIn: feedId("XRP/USD"),
+      feedIdOut: feedId("USDT/USD"),
+      decimalsIn: 6,
+      decimalsOut: 18,
+      amountIn: 1_000_000n,
+      maxDeviationBps: 100,
+      maxFeedAgeSeconds: 300n,
+    }),
+  ],
+};
+
+/** The contract cap, so the boundary is pinned on both sides. */
+const atTheCap: Instruction = {
+  sender: ACC_A,
+  nonce: 1n,
+  feeToken: TOKEN_A,
+  feeAmount: 0n,
+  calls: [{ target: TOKEN_A, value: 0n, data: "0x" }],
+  postConditions: Array.from({ length: MAX_POST_CONDITIONS }, (_, i) =>
+    erc20BalanceAtLeast(TOKEN_A, ACC_A, BigInt(i + 1)),
+  ),
+};
+
 const cases: FixtureCase[] = [
+  execInline("execInline/every-post-condition-kind", 3, 0n, withEveryKind),
+  execCommit("execCommit/every-post-condition-kind", 3, 0n, withEveryKind),
+  execCommit("execCommit/ftso-bound-plus-absolute-floor", 5, 0n, withFtsoBound),
+  execCommit("execCommit/post-conditions-at-the-cap", 6, 0n, atTheCap),
   execInline("execInline/one-call/no-fee", 0, 0n, oneCall),
   execInline("execInline/two-calls/fee-in-moved-asset", 7, 0n, twoCalls),
   execInline("execInline/empty-calldata/max-fee-and-nonce", 255, 0n, emptyData),

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { getAddress, hexlify, randomBytes } from "ethers";
+import { getAddress, hexlify, randomBytes, keccak256 } from "ethers";
 import {
   encodeMemo,
   decodeMemo,
@@ -13,8 +13,13 @@ import {
   fromXrplMemoData,
   MemoEncodeError,
   MemoDecodeError,
+  decodeFtsoBound,
 } from "../src/memo.js";
 import {
+  PostConditionKind,
+  ZERO_ADDRESS,
+  MAX_POST_CONDITIONS,
+  type PostCondition,
   Opcode,
   RESERVED_OPCODES,
   FSA_OPCODES,
@@ -25,6 +30,11 @@ import {
   type Instruction,
   type Memo,
 } from "../src/types.js";
+import {
+  erc20BalanceAtLeast,
+  ftsoRateAtLeast,
+  feedId,
+} from "../src/postConditions.js";
 
 const byteLength = (hex: string) => (hex.length - 2) / 2;
 
@@ -40,12 +50,33 @@ const bytes32Arb = fc.uint8Array({ minLength: 32, maxLength: 32 }).map(hexlify);
 const dataArb = fc.uint8Array({ minLength: 0, maxLength: 64 }).map(hexlify);
 
 const callArb = fc.record({ target: addressArb, value: u256Arb, data: dataArb });
+/** Simple post-conditions: the kinds with no `extra`. */
+const simpleConditionArb: fc.Arbitrary<PostCondition> = fc
+  .tuple(
+    fc.constantFrom(
+      PostConditionKind.Erc20BalanceAtLeast,
+      PostConditionKind.Erc20DeltaAtLeast,
+      PostConditionKind.NativeBalanceAtLeast,
+      PostConditionKind.NativeDeltaAtLeast,
+    ),
+    addressArb,
+    addressArb,
+    u256Arb,
+  )
+  .map(([kind, token, subject, threshold]) => {
+    const native =
+      kind === PostConditionKind.NativeBalanceAtLeast ||
+      kind === PostConditionKind.NativeDeltaAtLeast;
+    return { kind, token: native ? ZERO_ADDRESS : token, subject, threshold, extra: "0x" };
+  });
+
 const instructionArb: fc.Arbitrary<Instruction> = fc.record({
   sender: addressArb,
   nonce: u256Arb,
   feeToken: addressArb,
   feeAmount: u256Arb,
   calls: fc.array(callArb, { minLength: 1, maxLength: 5 }),
+  postConditions: fc.array(simpleConditionArb, { maxLength: 4 }),
 });
 
 /**
@@ -208,7 +239,7 @@ describe("executor fee", () => {
       calls: [{ target: "0x2222222222222222222222222222222222222222", value: 0n, data: "0x" }],
     };
     for (const feeAmount of [0n, 1n, 250_000n, (1n << 128n) - 1n, (1n << 256n) - 1n]) {
-      const i = { ...base, feeAmount };
+      const i = { ...base, feeAmount, postConditions: [] };
       expect(decodeInstruction(encodeInstruction(i))).toEqual(i);
     }
   });
@@ -494,5 +525,190 @@ describe("golden fixtures", () => {
       expect(instruction.feeAmount, c.name).toEqual(BigInt(c.feeAmount));
       expect(instruction.calls.length, c.name).toEqual(c.callCount);
     }
+  });
+});
+
+
+// --- payload versioning -----------------------------------------------------------------
+
+describe("payload versioning", () => {
+  it("puts the version in byte 0 of the payload, never in the header", () => {
+    const payload = encodeInstruction({
+      sender: ZERO_ADDRESS.replace(/0$/, "1"),
+      nonce: 0n,
+      feeToken: ZERO_ADDRESS,
+      feeAmount: 0n,
+      calls: [{ target: ZERO_ADDRESS.replace(/0$/, "2"), value: 0n, data: "0x" }],
+    });
+    expect(payload.slice(0, 4)).toEqual("0x02");
+
+    // The header is untouched by versioning: opcode, walletId, reserved fee.
+    const memo = encodeMemo({
+      kind: "execCommit",
+      opcode: Opcode.ExecCommit,
+      walletId: 1,
+      executorFee: 0n,
+      commitment: keccak256(payload),
+    });
+    expect(memo.slice(0, 22)).toEqual("0xfc01" + "00".repeat(8));
+  });
+
+  it("omitting postConditions is the same as an empty list", () => {
+    const base = {
+      sender: ZERO_ADDRESS.replace(/0$/, "1"),
+      nonce: 0n,
+      feeToken: ZERO_ADDRESS,
+      feeAmount: 0n,
+      calls: [{ target: ZERO_ADDRESS.replace(/0$/, "2"), value: 0n, data: "0x" }],
+    };
+    expect(encodeInstruction(base)).toEqual(encodeInstruction({ ...base, postConditions: [] }));
+    expect(decodeInstruction(encodeInstruction(base)).postConditions).toEqual([]);
+  });
+
+  /**
+   * The v1 vectors are Phase 1/2 payloads. Every one begins with the zero byte of a
+   * left-padded address, which is why version 0 is a reliable marker for "this is v1" rather
+   * than a coincidence. Both sides reject them, and the message says so in words.
+   */
+  it("rejects every frozen v1 payload, naming it as v1", () => {
+    const v1 = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, "../../fixtures/memo-wire-v1.json"), "utf8"),
+    );
+    let checked = 0;
+    for (const c of v1.cases) {
+      if (c.payload === "0x") continue;
+      expect(c.payload.slice(0, 4), c.name).toEqual("0x00");
+      expect(() => decodeInstruction(c.payload), c.name).toThrow(/version 0.*v1/);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it("rejects any unknown version explicitly", () => {
+    const good = encodeInstruction({
+      sender: ZERO_ADDRESS.replace(/0$/, "1"),
+      nonce: 0n,
+      feeToken: ZERO_ADDRESS,
+      feeAmount: 0n,
+      calls: [{ target: ZERO_ADDRESS.replace(/0$/, "2"), value: 0n, data: "0x" }],
+    });
+    for (const v of [1, 3, 0x7f, 0xff]) {
+      const tampered = "0x" + v.toString(16).padStart(2, "0") + good.slice(4);
+      expect(() => decodeInstruction(tampered)).toThrow(/version/);
+    }
+  });
+
+  it("rejects an empty payload", () => {
+    expect(() => decodeInstruction("0x")).toThrow(/empty/);
+  });
+});
+
+// --- post-conditions --------------------------------------------------------------------
+
+describe("post-conditions", () => {
+  const acct = "0x1111111111111111111111111111111111111111";
+  const token = "0x2222222222222222222222222222222222222222";
+
+  const withConditions = (postConditions: PostCondition[]) => ({
+    sender: acct,
+    nonce: 0n,
+    feeToken: ZERO_ADDRESS,
+    feeAmount: 0n,
+    calls: [{ target: token, value: 0n, data: "0x" }],
+    postConditions,
+  });
+
+  it("round-trips every kind", () => {
+    fc.assert(
+      fc.property(fc.array(simpleConditionArb, { maxLength: 6 }), (conds) => {
+        const decoded = decodeInstruction(encodeInstruction(withConditions(conds)));
+        expect(decoded.postConditions).toEqual(conds);
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it("round-trips an FTSO bound through extra", () => {
+    const bound = {
+      feedIdIn: feedId("XRP/USD"),
+      feedIdOut: feedId("USDT/USD"),
+      decimalsIn: 6,
+      decimalsOut: 18,
+      amountIn: 5_000_000n,
+      maxDeviationBps: 150,
+      maxFeedAgeSeconds: 300n,
+    };
+    const c = ftsoRateAtLeast(token, acct, bound);
+    const decoded = decodeInstruction(encodeInstruction(withConditions([c])));
+    expect(decodeFtsoBound(decoded.postConditions![0].extra!)).toEqual(bound);
+  });
+
+  it("builds the documented feed ids", () => {
+    // Category byte 0x01 (crypto), then the ASCII name, zero-padded to 21 bytes.
+    expect(feedId("FLR/USD")).toEqual("0x01464c522f55534400000000000000000000000000");
+    expect(feedId("XRP/USD")).toEqual("0x015852502f55534400000000000000000000000000");
+  });
+
+  it("changes the commitment, so an executor cannot strip one", () => {
+    const without = commitmentOf(withConditions([]));
+    const withOne = commitmentOf(withConditions([erc20BalanceAtLeast(token, acct, 1n)]));
+    expect(withOne).not.toEqual(without);
+  });
+
+  it("refuses a native condition that names a token", () => {
+    expect(() =>
+      encodeInstruction(
+        withConditions([
+          { kind: PostConditionKind.NativeBalanceAtLeast, token, subject: acct, threshold: 1n, extra: "0x" },
+        ]),
+      ),
+    ).toThrow(/native kinds/);
+  });
+
+  it("refuses a token condition with no token", () => {
+    expect(() =>
+      encodeInstruction(
+        withConditions([erc20BalanceAtLeast(ZERO_ADDRESS, acct, 1n)]),
+      ),
+    ).toThrow(/token address/);
+  });
+
+  it("refuses an FTSO condition with no bound, and extra on any other kind", () => {
+    expect(() =>
+      encodeInstruction(
+        withConditions([
+          { kind: PostConditionKind.FtsoRateAtLeast, token, subject: acct, threshold: 0n, extra: "0x" },
+        ]),
+      ),
+    ).toThrow(/FtsoBound/);
+    expect(() =>
+      encodeInstruction(
+        withConditions([{ ...erc20BalanceAtLeast(token, acct, 1n), extra: "0xdead" }]),
+      ),
+    ).toThrow(/only FtsoRateAtLeast/);
+  });
+
+  it("refuses more conditions than the contract will evaluate", () => {
+    const tooMany = Array.from({ length: MAX_POST_CONDITIONS + 1 }, () =>
+      erc20BalanceAtLeast(token, acct, 1n),
+    );
+    expect(() => encodeInstruction(withConditions(tooMany))).toThrow(/cap of 32/);
+    expect(() =>
+      encodeInstruction(withConditions(tooMany.slice(0, MAX_POST_CONDITIONS))),
+    ).not.toThrow();
+  });
+
+  it("refuses a deviation of 100% or more, which would assert nothing", () => {
+    expect(() =>
+      ftsoRateAtLeast(token, acct, {
+        feedIdIn: feedId("XRP/USD"),
+        feedIdOut: feedId("USDT/USD"),
+        decimalsIn: 6,
+        decimalsOut: 6,
+        amountIn: 1n,
+        maxDeviationBps: 10_000,
+        maxFeedAgeSeconds: 60n,
+      }),
+    ).toThrow(/below 10000/);
   });
 });

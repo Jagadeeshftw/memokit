@@ -15,7 +15,8 @@ interface IMemoController {
         bytes32 indexed transactionId,
         uint8 opcode,
         uint256 nonce,
-        uint256 callCount
+        uint256 callCount,
+        uint256 postConditionCount
     );
 
     /// @notice Emitted when a previously flagged transaction id is retired without dispatch.

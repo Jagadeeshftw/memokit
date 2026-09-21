@@ -1,5 +1,10 @@
 import { AbiCoder, getAddress, hexlify, keccak256, getBytes, concat, zeroPadValue, toBeHex } from "ethers";
 import {
+  MAX_POST_CONDITIONS,
+  PostConditionKind,
+  ZERO_ADDRESS,
+  type PostCondition,
+  type FtsoBound,
   Opcode,
   RESERVED_OPCODES,
   HEADER_LENGTH,
@@ -24,13 +29,33 @@ const coder = AbiCoder.defaultAbiCoder();
  * hash a 0xFC memo commits to covers it: an executor sees the preimage before acting, and
  * must not be able to change what it is paid or in what.
  */
+export const POST_CONDITION_ABI_TYPE =
+  "tuple(uint8 kind, address token, address subject, uint256 threshold, bytes extra)[]";
+
 export const INSTRUCTION_ABI_TYPES = [
   "address",
   "uint256",
   "address",
   "uint256",
   "tuple(address target, uint256 value, bytes data)[]",
+  POST_CONDITION_ABI_TYPE,
 ] as const;
+
+/** ABI shape of {@link FtsoBound}, carried in a post-condition's `extra`. */
+export const FTSO_BOUND_ABI_TYPE =
+  "tuple(bytes21 feedIdIn, bytes21 feedIdOut, uint8 decimalsIn, uint8 decimalsOut," +
+  "uint256 amountIn, uint16 maxDeviationBps, uint64 maxFeedAgeSeconds)";
+
+/**
+ * Current payload version, byte 0 of every instruction payload.
+ *
+ * Version 1 was the Phase 1/2 payload and carried no version byte. It is not accepted any
+ * more and needs no special case to reject: a v1 payload starts with the first word of a
+ * left-padded `address`, so its leading byte is always zero, and zero is not a known version.
+ * `fixtures/memo-wire-v1.json` keeps those payloads as regression vectors asserting exactly
+ * that, on both sides.
+ */
+export const PAYLOAD_VERSION = 2;
 
 export class MemoEncodeError extends Error {}
 export class MemoDecodeError extends Error {}
@@ -47,7 +72,62 @@ function assertByte(value: number, label: string): void {
   }
 }
 
-/** ABI-encode an instruction. This is the payload 0xFD inlines and 0xFC commits to. */
+/** Encode an {@link FtsoBound} for a post-condition's `extra` field. */
+export function encodeFtsoBound(bound: FtsoBound): string {
+  assertUint(bound.amountIn, 256, "ftsoBound.amountIn");
+  assertUint(BigInt(bound.maxDeviationBps), 16, "ftsoBound.maxDeviationBps");
+  if (bound.maxDeviationBps >= 10_000) {
+    throw new MemoEncodeError("ftsoBound.maxDeviationBps must be below 10000 (100%)");
+  }
+  return coder.encode(
+    [FTSO_BOUND_ABI_TYPE],
+    [
+      [
+        bound.feedIdIn,
+        bound.feedIdOut,
+        bound.decimalsIn,
+        bound.decimalsOut,
+        bound.amountIn,
+        bound.maxDeviationBps,
+        bound.maxFeedAgeSeconds,
+      ],
+    ],
+  );
+}
+
+function encodePostConditions(conditions: PostCondition[]): unknown[] {
+  if (conditions.length > MAX_POST_CONDITIONS) {
+    throw new MemoEncodeError(
+      `${conditions.length} post-conditions exceeds the contract cap of ${MAX_POST_CONDITIONS}`,
+    );
+  }
+  return conditions.map((c, i) => {
+    assertUint(c.threshold, 256, `postConditions[${i}].threshold`);
+    const native =
+      c.kind === PostConditionKind.NativeBalanceAtLeast ||
+      c.kind === PostConditionKind.NativeDeltaAtLeast;
+    if (native && c.token !== ZERO_ADDRESS) {
+      throw new MemoEncodeError(`postConditions[${i}]: native kinds must leave token unset`);
+    }
+    if (!native && c.token === ZERO_ADDRESS) {
+      throw new MemoEncodeError(`postConditions[${i}]: token kinds need a token address`);
+    }
+    if (c.kind === PostConditionKind.FtsoRateAtLeast && (c.extra ?? "0x") === "0x") {
+      throw new MemoEncodeError(`postConditions[${i}]: FtsoRateAtLeast needs an encoded FtsoBound`);
+    }
+    if (c.kind !== PostConditionKind.FtsoRateAtLeast && (c.extra ?? "0x") !== "0x") {
+      throw new MemoEncodeError(`postConditions[${i}]: only FtsoRateAtLeast may carry extra`);
+    }
+    return [c.kind, getAddress(c.token), getAddress(c.subject), c.threshold, c.extra ?? "0x"];
+  });
+}
+
+/**
+ * ABI-encode an instruction. This is the payload 0xFD inlines and 0xFC commits to.
+ *
+ * The result is a single version byte followed by the ABI tuple, so an unknown version can be
+ * rejected on chain before the decode is attempted.
+ */
 export function encodeInstruction(instruction: Instruction): string {
   assertUint(instruction.nonce, 256, "nonce");
   assertUint(instruction.feeAmount, 256, "feeAmount");
@@ -55,7 +135,7 @@ export function encodeInstruction(instruction: Instruction): string {
     assertUint(c.value, 256, "call.value");
     return [getAddress(c.target), c.value, c.data];
   });
-  return coder.encode(
+  const body = coder.encode(
     [...INSTRUCTION_ABI_TYPES],
     [
       getAddress(instruction.sender),
@@ -63,15 +143,29 @@ export function encodeInstruction(instruction: Instruction): string {
       getAddress(instruction.feeToken),
       instruction.feeAmount,
       calls,
+      encodePostConditions(instruction.postConditions ?? []),
     ],
   );
+  return hexlify(concat([new Uint8Array([PAYLOAD_VERSION]), body]));
 }
 
 /** Inverse of {@link encodeInstruction}. */
 export function decodeInstruction(payload: string): Instruction {
+  const bytes = getBytes(payload);
+  if (bytes.length < 1) {
+    throw new MemoDecodeError("instruction payload is empty");
+  }
+  const version = bytes[0];
+  if (version !== PAYLOAD_VERSION) {
+    throw new MemoDecodeError(
+      version === 0
+        ? "payload version 0: this is a Phase 1/2 (v1) payload, which is no longer accepted"
+        : `unsupported payload version ${version}`,
+    );
+  }
   let decoded;
   try {
-    decoded = coder.decode([...INSTRUCTION_ABI_TYPES], payload);
+    decoded = coder.decode([...INSTRUCTION_ABI_TYPES], hexlify(bytes.slice(1)));
   } catch (cause) {
     throw new MemoDecodeError(`instruction payload is not valid ABI: ${(cause as Error).message}`);
   }
@@ -80,12 +174,34 @@ export function decodeInstruction(payload: string): Instruction {
     value: c[1] as bigint,
     data: c[2] as string,
   }));
+  const postConditions: PostCondition[] = decoded[5].map((c: unknown[]) => ({
+    kind: Number(c[0]) as PostConditionKind,
+    token: getAddress(c[1] as string),
+    subject: getAddress(c[2] as string),
+    threshold: c[3] as bigint,
+    extra: c[4] as string,
+  }));
   return {
     sender: getAddress(decoded[0]),
     nonce: decoded[1] as bigint,
     feeToken: getAddress(decoded[2]),
     feeAmount: decoded[3] as bigint,
     calls,
+    postConditions,
+  };
+}
+
+/** Inverse of {@link encodeFtsoBound}. */
+export function decodeFtsoBound(extra: string): FtsoBound {
+  const [b] = coder.decode([FTSO_BOUND_ABI_TYPE], extra);
+  return {
+    feedIdIn: b[0],
+    feedIdOut: b[1],
+    decimalsIn: Number(b[2]),
+    decimalsOut: Number(b[3]),
+    amountIn: b[4] as bigint,
+    maxDeviationBps: Number(b[5]),
+    maxFeedAgeSeconds: b[6] as bigint,
   };
 }
 

@@ -100,7 +100,7 @@ contract MemoControllerTest is MemoKitTestBase {
         bytes memory payload = _instruction(account, 0, _depositCalls());
 
         vm.expectEmit(true, true, false, true, address(diamond));
-        emit IMemoController.InstructionExecuted(account, TX_ID, MemoCodec.OP_EXEC_COMMIT, 0, 2);
+        emit IMemoController.InstructionExecuted(account, TX_ID, MemoCodec.OP_EXEC_COMMIT, 0, 2, 0);
 
         vm.prank(executor);
         controller.execute(_proof(TX_ID, _commitMemo(0, payload)), payload);

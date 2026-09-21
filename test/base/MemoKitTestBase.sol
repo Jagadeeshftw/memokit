@@ -17,13 +17,16 @@ import {FacetSelectors} from "../../scripts/lib/FacetSelectors.sol";
 import {PersonalAccount} from "../../contracts/accounts/PersonalAccount.sol";
 import {PersonalAccountBeacon} from "../../contracts/accounts/PersonalAccountBeacon.sol";
 import {Accounts} from "../../contracts/libraries/Accounts.sol";
+import {MemoCodec} from "../../contracts/libraries/MemoCodec.sol";
 import {IMemoController} from "../../contracts/interfaces/IMemoController.sol";
 import {IPersonalAccount} from "../../contracts/interfaces/IPersonalAccount.sol";
+import {IPostConditions} from "../../contracts/interfaces/IPostConditions.sol";
 
 import {MockContractRegistry} from "../../contracts/mocks/MockContractRegistry.sol";
 import {MockERC20} from "../../contracts/mocks/MockERC20.sol";
 import {MockERC4626} from "../../contracts/mocks/MockERC4626.sol";
 import {MockFdcVerification} from "../../contracts/mocks/MockFdcVerification.sol";
+import {MockFtsoV2} from "../../contracts/mocks/MockFtsoV2.sol";
 import {MockSingletonFactory} from "../../contracts/mocks/MockSingletonFactory.sol";
 
 /// @notice Shared setup: a fully cut memokit diamond, mocked Flare infrastructure, a vault.
@@ -48,6 +51,7 @@ abstract contract MemoKitTestBase is Test {
     DiamondLoupeFacet internal loupe;
 
     MockFdcVerification internal fdc;
+    MockFtsoV2 internal ftso;
     MockContractRegistry internal registry;
     MockERC20 internal fxrp;
     MockERC4626 internal vault;
@@ -117,10 +121,13 @@ abstract contract MemoKitTestBase is Test {
     function _installFlareInfrastructure() private {
         registry = new MockContractRegistry();
         fdc = new MockFdcVerification();
+        ftso = new MockFtsoV2();
         registry.setContractAddress("FdcVerification", address(fdc));
+        registry.setContractAddress("FtsoV2", address(ftso));
         vm.etch(FLARE_CONTRACT_REGISTRY, address(registry).code);
         // Re-point storage on the etched copy.
         MockContractRegistry(FLARE_CONTRACT_REGISTRY).setContractAddress("FdcVerification", address(fdc));
+        MockContractRegistry(FLARE_CONTRACT_REGISTRY).setContractAddress("FtsoV2", address(ftso));
 
         vm.etch(Accounts.SINGLETON_FACTORY, address(new MockSingletonFactory()).code);
     }
@@ -163,13 +170,19 @@ abstract contract MemoKitTestBase is Test {
         return abi.encodePacked(_opcode, _walletId, _fee);
     }
 
+    /// @dev No post-conditions. Most tests do not need one; the ones that do use
+    ///      `_instructionWith`.
+    function _noConditions() internal pure returns (IPostConditions.PostCondition[] memory) {
+        return new IPostConditions.PostCondition[](0);
+    }
+
     /// @dev An instruction that pays no fee: token zero, amount zero.
     function _instruction(address _sender, uint256 _nonce, IPersonalAccount.Call[] memory _calls)
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encode(_sender, _nonce, address(0), uint256(0), _calls);
+        return _instructionWith(_sender, _nonce, address(0), 0, _calls, _noConditions());
     }
 
     /// @dev An instruction whose executor fee is `_feeAmount` of `_feeToken`, inside the payload.
@@ -180,7 +193,108 @@ abstract contract MemoKitTestBase is Test {
         uint256 _feeAmount,
         IPersonalAccount.Call[] memory _calls
     ) internal pure returns (bytes memory) {
-        return abi.encode(_sender, _nonce, _feeToken, _feeAmount, _calls);
+        return _instructionWith(_sender, _nonce, _feeToken, _feeAmount, _calls, _noConditions());
+    }
+
+    /// @dev An instruction carrying post-conditions.
+    function _instructionWithConditions(
+        address _sender,
+        uint256 _nonce,
+        IPersonalAccount.Call[] memory _calls,
+        IPostConditions.PostCondition[] memory _conditions
+    ) internal pure returns (bytes memory) {
+        return _instructionWith(_sender, _nonce, address(0), 0, _calls, _conditions);
+    }
+
+    /// @dev The full payload: version byte, then the tuple. Every other builder goes through
+    ///      here so the version can never be forgotten in one place and not another.
+    function _instructionWith(
+        address _sender,
+        uint256 _nonce,
+        address _feeToken,
+        uint256 _feeAmount,
+        IPersonalAccount.Call[] memory _calls,
+        IPostConditions.PostCondition[] memory _conditions
+    ) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            bytes1(MemoCodec.PAYLOAD_VERSION),
+            abi.encode(_sender, _nonce, _feeToken, _feeAmount, _calls, _conditions)
+        );
+    }
+
+    // --- post-condition builders ---------------------------------------------------------
+
+    function _pcErc20Balance(address _token, address _subject, uint256 _atLeast)
+        internal pure returns (IPostConditions.PostCondition memory)
+    {
+        return IPostConditions.PostCondition({
+            kind: IPostConditions.Kind.Erc20BalanceAtLeast,
+            token: _token, subject: _subject, threshold: _atLeast, extra: ""
+        });
+    }
+
+    function _pcErc20Delta(address _token, address _subject, uint256 _atLeast)
+        internal pure returns (IPostConditions.PostCondition memory)
+    {
+        return IPostConditions.PostCondition({
+            kind: IPostConditions.Kind.Erc20DeltaAtLeast,
+            token: _token, subject: _subject, threshold: _atLeast, extra: ""
+        });
+    }
+
+    function _pcNativeBalance(address _subject, uint256 _atLeast)
+        internal pure returns (IPostConditions.PostCondition memory)
+    {
+        return IPostConditions.PostCondition({
+            kind: IPostConditions.Kind.NativeBalanceAtLeast,
+            token: address(0), subject: _subject, threshold: _atLeast, extra: ""
+        });
+    }
+
+    function _pcNativeDelta(address _subject, uint256 _atLeast)
+        internal pure returns (IPostConditions.PostCondition memory)
+    {
+        return IPostConditions.PostCondition({
+            kind: IPostConditions.Kind.NativeDeltaAtLeast,
+            token: address(0), subject: _subject, threshold: _atLeast, extra: ""
+        });
+    }
+
+    function _pcFtsoRate(address _tokenOut, address _subject, IPostConditions.FtsoBound memory _b)
+        internal pure returns (IPostConditions.PostCondition memory)
+    {
+        return IPostConditions.PostCondition({
+            kind: IPostConditions.Kind.FtsoRateAtLeast,
+            token: _tokenOut, subject: _subject, threshold: 0, extra: abi.encode(_b)
+        });
+    }
+
+    function _conditions(IPostConditions.PostCondition memory _a)
+        internal pure returns (IPostConditions.PostCondition[] memory _out)
+    {
+        _out = new IPostConditions.PostCondition[](1);
+        _out[0] = _a;
+    }
+
+    function _conditions(
+        IPostConditions.PostCondition memory _a,
+        IPostConditions.PostCondition memory _b
+    ) internal pure returns (IPostConditions.PostCondition[] memory _out) {
+        _out = new IPostConditions.PostCondition[](2);
+        _out[0] = _a;
+        _out[1] = _b;
+    }
+
+    /// @dev FTSOv2 feed id for a crypto pair, e.g. `XRP/USD`.
+    function _feedId(string memory _name) internal pure returns (bytes21) {
+        bytes memory n = bytes(_name);
+        require(n.length <= 20, "feed name too long");
+        bytes memory out = new bytes(21);
+        out[0] = 0x01;
+        for (uint256 i = 0; i < n.length; ++i) {
+            out[i + 1] = n[i];
+        }
+        return bytes21(out);
     }
 
     function _oneCall(address _target, uint256 _value, bytes memory _data)

@@ -33,6 +33,7 @@ tab_width = 4
 
 [rpc_endpoints]
 flare = "https://flare-api.flare.network/ext/C/rpc"
+coston2 = "https://coston2-api.flare.network/ext/C/rpc"
 
 # Fork tests: Flare mainnet at a pinned block, proofs built by the SDK through ffi.
 # Simulated verification -- see test/fork/ForkBase.t.sol. ffi stays off in every other profile.
