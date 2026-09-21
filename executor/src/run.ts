@@ -124,7 +124,22 @@ export async function runScenario(scenario: Scenario): Promise<void> {
   console.log(`  attested memo matches, voting round ${attested.response.votingRound}`);
 
   // 6. execute ----------------------------------------------------------------------------
-  const receipt = await submit({ signer: evm, controller: deployment.diamond, proof: attested.proof, payload: prepared.payload });
+  // A revert leaves the transaction id unconsumed and the nonce unchanged, so retrying with the
+  // same proof is safe. Phase 1 saw FXRP transfers revert transiently; the attempt count goes
+  // in the trace so a retry can never be mistaken for a clean first try.
+  const submitErrors: string[] = [];
+  let receipt: ContractTransactionReceipt | undefined;
+  for (let attempt = 1; attempt <= 3 && !receipt; attempt++) {
+    try {
+      receipt = await submit({ signer: evm, controller: deployment.diamond, proof: attested.proof, payload: prepared.payload });
+    } catch (e) {
+      submitErrors.push(String((e as Error).message).slice(0, 300));
+      console.log(`  execute attempt ${attempt} reverted: ${submitErrors.at(-1)}`);
+      if (attempt === 3) throw e;
+      await new Promise((r) => setTimeout(r, 15_000));
+    }
+  }
+  if (!receipt) throw new Error("unreachable");
   mark("memokit:executed");
   console.log(`  execute ${receipt.hash} in block ${receipt.blockNumber}`);
 
@@ -162,6 +177,8 @@ export async function runScenario(scenario: Scenario): Promise<void> {
     executeTx: receipt.hash,
     executeBlock: receipt.blockNumber,
     executeGasUsed: receipt.gasUsed.toString(),
+    executeAttempts: submitErrors.length + 1,
+    executeRevertedAttempts: submitErrors,
     stateAtStart: jsonSafe(startedAt),
     stateBeforeExecuteBlock: jsonSafe(before),
     stateAtExecuteBlock: jsonSafe(after),

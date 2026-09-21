@@ -1,0 +1,25 @@
+{
+  "note": "Phase 1 account's FTestXRP moved to the Phase 2 account by a real old-format instruction on the OLD diamond (executor/src/migrateFunds.ts).",
+  "oldDiamond": "0xd1B2EF71B305828Da135d5524E81fDd5523a3f73",
+  "newDiamond": "0x98882776ED3CB4b3abB86CceFE2f46C1aAed9E36",
+  "oldAccount": "0x823d7dAe9e087D4c96225DE6385376a990067d4e",
+  "newAccount": "0x8F1eD3f5355846008A47ce91Fbc49EE1808d43b1",
+  "xrplTransactionHash": "C7C62154A14525F6007BAFFEB5DED937F80E3ECFD00272A36CF42CC2357BAED9",
+  "requestAttestationTx": "0x0bf7014a910d7472a99cb03d877fb42261fa540e72b6e689a45555a6a2de0ad2",
+  "executeTx": "0xaf48bf9e1fc993204d9ea642fdd42fbcfcc35c36bdd9b34590adb5dad43bdfcd",
+  "executeBlock": 35633976,
+  "amount": "5000000",
+  "before": {
+    "old": "5000000",
+    "new": "0"
+  },
+  "after": {
+    "old": "0",
+    "new": "5000000"
+  },
+  "explorer": {
+    "requestAttestation": "https://coston2-explorer.flare.network/tx/0x0bf7014a910d7472a99cb03d877fb42261fa540e72b6e689a45555a6a2de0ad2",
+    "execute": "https://coston2-explorer.flare.network/tx/0xaf48bf9e1fc993204d9ea642fdd42fbcfcc35c36bdd9b34590adb5dad43bdfcd",
+    "xrpl": "https://testnet.xrpl.org/transactions/C7C62154A14525F6007BAFFEB5DED937F80E3ECFD00272A36CF42CC2357BAED9"
+  }
+}

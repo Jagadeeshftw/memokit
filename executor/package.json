@@ -13,7 +13,9 @@
     "e2e": "tsx src/e2e.ts",
     "fund": "tsx src/fundWithFxrp.ts",
     "selectors:refresh": "tsx src/measure/flareSelectors.ts",
-    "selectors:check": "tsx src/measure/flareSelectors.ts --check"
+    "selectors:check": "tsx src/measure/flareSelectors.ts --check",
+    "migrate": "tsx src/migrateFunds.ts",
+    "payout": "tsx src/payout.ts"
   },
   "dependencies": {
     "ethers": "^6.13.4",

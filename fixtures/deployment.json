@@ -1,14 +1,13 @@
 {
   "chainId": 114,
-  "diamond": "0xd1B2EF71B305828Da135d5524E81fDd5523a3f73",
-  "diamondCutFacet": "0x450B71D8618F350D9A46cdE28A849a00052324dE",
-  "diamondLoupeFacet": "0x79357cd1dF9fFB1C2B583a1C46BcBf8F6ef91078",
-  "memoControllerFacet": "0xc86A57b64eE8A30C7438bea15b6Eb5881A981928",
-  "adminFacet": "0x588050414b2eD7228E9afd2141B1Ab3D34A0474A",
-  "accountsFacet": "0x9dB28b3E4AFf8609F2a68D80E1C8270497221FDE",
-  "personalAccountImplementation": "0x714E9B11CBb66716B4a688f5fE33Dde9e9D392D9",
-  "personalAccountBeacon": "0x0c5537E3A9D41E4E5DdB48137873786D649E4178",
+  "diamond": "0x98882776ED3CB4b3abB86CceFE2f46C1aAed9E36",
+  "diamondCutFacet": "0xD42763F5245a8BA3f44c17960beA24ABc37d4318",
+  "diamondLoupeFacet": "0xD8a7260007A9c69219f4Dadc18b7bFc03E28e209",
+  "memoControllerFacet": "0x5A5bF90bf928fEf30BDabF2b1E20138F6A83c269",
+  "adminFacet": "0x97A7DA081F7Fad73dadbdf572Be6950487535E0a",
+  "accountsFacet": "0xE818d8594afCd778b6CA7a507435AC9DCc835C69",
+  "personalAccountImplementation": "0xdE823b43e8c5d3873613295d416855c76a103f22",
+  "personalAccountBeacon": "0xE40C9d7e0c3f8d6F06AadC320d1aA7cc7195AF31",
   "owner": "0x8848d8578756A1110161eEB32E868Be1415F2cD7",
-  "feeToken": "0x0b6A3645c240605887a5532109323A3E12273dc7",
   "receivingAddress": "rDfVHUx5SMgw5wwqjvzgFEFCnqW5CCGWyW"
 }
