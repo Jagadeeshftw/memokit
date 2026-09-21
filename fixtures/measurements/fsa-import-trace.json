@@ -1,0 +1,45 @@
+{
+  "note": "Import from Flare Smart Accounts into memokit, via FSA payment-reference instruction 0x01. Live on Coston2 + XRPL Testnet.",
+  "capturedAt": "2026-09-21T10:25:07.641Z",
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "fsaController": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
+  "fsaAccount": "0xA7F3A5EeD4694F849A803dd9DE2b9a0A29ef30f3",
+  "memokitController": "0x98882776ED3CB4b3abB86CceFE2f46C1aAed9E36",
+  "memokitAccount": "0x8F1eD3f5355846008A47ce91Fbc49EE1808d43b1",
+  "fsaReceivingAddress": "rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq",
+  "paymentReference": "0x0100000000000000003d09008f1ed3f5355846008a47ce91fbc49ee1808d43b1",
+  "referenceDecoded": {
+    "instructionId": 1,
+    "walletId": 0,
+    "amountDrops": "4000000",
+    "recipient": "0x8F1eD3f5355846008A47ce91Fbc49EE1808d43b1"
+  },
+  "carrierDrops": "1000000",
+  "instructionFeeDrops": "1000",
+  "xrplTransactionHash": "3B2780C10EB02D085C5AFCE50AAC999FF0E9EE246AFF3004CD397C00C1E8E453",
+  "xrplLedgerIndex": 20933588,
+  "requestAttestationTx": "0x2a8e6a6f222727fbadb80ede552d4871e45128205cd3bfb0b4c805cdd9ec8cc5",
+  "votingRoundId": 1461735,
+  "fsaExecuteTx": "0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b",
+  "fsaExecuteBlock": 35645080,
+  "relayedBy": "0x8848d8578756A1110161eEB32E868Be1415F2cD7",
+  "relayedByFlareOperator": false,
+  "balances": {
+    "fsaBefore": "5000000",
+    "fsaAfter": "1000000",
+    "memokitBefore": "15100000",
+    "memokitAfter": "19100000",
+    "decimals": 6
+  },
+  "latencySeconds": {
+    "xrpl:submit -> xrpl:validated": 9,
+    "xrpl:validated -> fdc:request-submitted": 14,
+    "fdc:request-submitted -> fdc:proof-available": 135,
+    "fdc:proof-available -> fsa:executed": 5,
+    "total": 162
+  },
+  "explorer": {
+    "fsaExecute": "https://coston2-explorer.flare.network/tx/0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b",
+    "xrpl": "https://testnet.xrpl.org/transactions/3B2780C10EB02D085C5AFCE50AAC999FF0E9EE246AFF3004CD397C00C1E8E453"
+  }
+}

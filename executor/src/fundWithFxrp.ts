@@ -92,7 +92,10 @@ async function main() {
     ["function computeAccountAddress(string) view returns (address)"],
     provider,
   );
-  const account: string = await memokit.computeAccountAddress(xrplWallet.address);
+  // FUND_TARGET exists for the FSA-import trace, which needs FXRP in the *Flare Smart
+  // Accounts* account for the same XRPL owner rather than the memokit one.
+  const account: string =
+    process.env.FUND_TARGET ?? (await memokit.computeAccountAddress(xrplWallet.address));
   console.log(`funding account ${account} with ${await fAsset.symbol()}`);
 
   // Resume path. A reservation has an on-chain deadline, so when a run fails after the

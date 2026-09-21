@@ -16,7 +16,8 @@
     "selectors:check": "tsx src/measure/flareSelectors.ts --check",
     "migrate": "tsx src/migrateFunds.ts",
     "payout": "tsx src/payout.ts",
-    "rescue": "tsx src/cli/rescue.ts"
+    "rescue": "tsx src/cli/rescue.ts",
+    "import-fsa": "tsx src/importFromFsa.ts"
   },
   "dependencies": {
     "ethers": "^6.13.4",
