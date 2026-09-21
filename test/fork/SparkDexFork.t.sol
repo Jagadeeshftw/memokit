@@ -30,7 +30,7 @@ contract SparkDexForkTest is ForkBase {
     IUniversalRouter internal constant ROUTER = IUniversalRouter(0x0f3D8a38D4c74afBebc2c42695642f0e3acb15D3);
     IQuoterV2 internal constant QUOTER = IQuoterV2(0x5B5513c55fd06e2658010c121c37b07fC8e8B705);
     address internal constant USDT0 = 0xe7cd86e13AC4309349F30B3435a9d337750fC82D;
-    /// @dev The deepest FXRP pool at the pinned block: FXRP/USDT0, 0.05% (liquidity ~5.4e11).
+    /// @dev The deepest FXRP pool at the pinned block: FXRP/USDT0, 0.05% (0.22% price impact on 1,000 FXRP; see PHASE2.md).
     uint24 internal constant POOL_FEE = 500;
 
     /// UniversalRouter command and sentinel recipients (Uniswap's, unchanged in SparkDEX's fork).

@@ -341,3 +341,11 @@ pre-mainnet task.
 6. **Reconsider whether the executor fee should be a separate token.** The live run used a
    zero fee. Paying in the fee token means the account must hold two assets, which is
    friction the positioning does not need.
+
+---
+
+**Status at the end of Phase 2** (see [PHASE2.md](PHASE2.md)): item 1 (rename) is done, item 5
+(ERC-1363 receiver) is done, and item 6 is closed by moving the executor fee into the committed
+payload, in the moved asset. Items 2, 3 and 4 remain open. Phase 2 also found that this repo did not
+build from a clean clone (an ignore rule hid `scripts/lib/FacetSelectors.sol`); that is fixed.
+
