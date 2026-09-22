@@ -1,0 +1,13 @@
+{
+  "chainId": 114,
+  "diamond": "0x98882776ED3CB4b3abB86CceFE2f46C1aAed9E36",
+  "diamondCutFacet": "0xD42763F5245a8BA3f44c17960beA24ABc37d4318",
+  "diamondLoupeFacet": "0xD8a7260007A9c69219f4Dadc18b7bFc03E28e209",
+  "memoControllerFacet": "0x5A5bF90bf928fEf30BDabF2b1E20138F6A83c269",
+  "adminFacet": "0x97A7DA081F7Fad73dadbdf572Be6950487535E0a",
+  "accountsFacet": "0xE818d8594afCd778b6CA7a507435AC9DCc835C69",
+  "personalAccountImplementation": "0xdE823b43e8c5d3873613295d416855c76a103f22",
+  "personalAccountBeacon": "0xE40C9d7e0c3f8d6F06AadC320d1aA7cc7195AF31",
+  "owner": "0x8848d8578756A1110161eEB32E868Be1415F2cD7",
+  "receivingAddress": "rDfVHUx5SMgw5wwqjvzgFEFCnqW5CCGWyW"
+}
