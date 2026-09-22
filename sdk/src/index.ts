@@ -17,6 +17,7 @@ export * from "./rescue.js";
 export * from "./xrplHistory.js";
 export * from "./fsaImport.js";
 export * from "./cashOut.js";
+export * from "./unsignedPayment.js";
 export * from "./redemptionTracker.js";
 export * from "./networks.js";
 export * from "./deadline.js";
