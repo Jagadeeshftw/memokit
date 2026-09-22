@@ -10,3 +10,10 @@ lcov.info
 dist/
 broadcast/
 .DS_Store
+
+# Executor service working state, and the signing CLI's output. Both are per-operator: the
+# state file is a cache of what one service saw, and the signing directory holds instruction
+# preimages that belong to whoever signed them.
+.executor-state.json
+*.executor-state.json
+fixtures/measurements/signing/

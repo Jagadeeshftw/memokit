@@ -189,6 +189,14 @@ export interface XrplPaymentRecord {
   closedAt: number;
   destination: string;
   memo: string | null;
+  /**
+   * The XRPL address that sent it, when the caller knows it.
+   *
+   * Optional because the classifier is always called for a known owner and does not need it;
+   * an executor watching a receiving address discovers owners this way, so the fetcher fills
+   * it in.
+   */
+  sender?: string;
 }
 
 /**

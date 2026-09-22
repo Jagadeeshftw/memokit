@@ -18,11 +18,18 @@
     "payout": "tsx src/payout.ts",
     "rescue": "tsx src/cli/rescue.ts",
     "import-fsa": "tsx src/importFromFsa.ts",
-    "cash-out": "tsx src/cashOut.ts"
+    "cash-out": "tsx src/cashOut.ts",
+    "service": "tsx src/service/index.ts",
+    "status-api": "READ_ONLY=1 tsx src/service/index.ts",
+    "sign": "tsx src/cli/sign.ts"
   },
   "dependencies": {
+    "@memokit/sdk": "0.1.0",
     "ethers": "^6.13.4",
-    "xrpl": "^4.1.0",
-    "@memokit/sdk": "0.1.0"
+    "qrcode": "^1.5.4",
+    "xrpl": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
   }
 }

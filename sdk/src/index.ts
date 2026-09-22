@@ -28,6 +28,8 @@ export {
   fetchXrplTransaction,
   toTransactionId,
   CONTROLLER_ABI,
+  CONTROLLER_ERRORS,
+  controllerInterface,
   type PreparedInstruction,
   type AttestationRequest,
   type AttestedProof,

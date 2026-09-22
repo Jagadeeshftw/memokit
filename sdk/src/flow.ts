@@ -194,12 +194,57 @@ export async function waitForProof(args: {
  * `IXRPPayment.Proof` is `(bytes32[] merkleProof, Response data)` -- one level of tuple, not
  * two. An extra pair of parentheses here fails only at call time, with "array is wrong length".
  */
+/**
+ * Every custom error `execute` can revert with, so a caller gets a name rather than four
+ * bytes.
+ *
+ * Worth carrying in the ABI rather than decoding by hand: ethers matches the selector for
+ * free, and the difference between `TransactionAlreadyUsed` -- somebody else executed it, no
+ * action needed -- and everything else is the difference between a service that retries
+ * forever and one that stops.
+ */
+export const CONTROLLER_ERRORS = [
+  "error TransactionAlreadyUsed(bytes32 transactionId)",
+  "error InvalidNonce(uint256 expected, uint256 actual)",
+  "error InvalidNonceIncrease(uint256 current, uint256 requested)",
+  "error SenderMismatch(address expected, address actual)",
+  "error CommitmentMismatch(bytes32 expected, bytes32 actual)",
+  "error HeaderFeeReserved(uint64 headerFee)",
+  "error InvalidFee(address feeToken, uint256 feeAmount)",
+  "error CallFailed(uint256 index, bytes returnData)",
+  "error PostConditionFailed(uint256 index, uint8 kind, uint256 required, uint256 actual)",
+  "error MalformedPostCondition(uint256 index, uint8 kind)",
+  "error TooManyPostConditions(uint256 count, uint256 max)",
+  "error RateBelowOracleBound(uint256 index, uint256 requiredOut, uint256 actualOut)",
+  "error FeedTooOld(uint256 index, bytes21 feedId, uint64 feedTimestamp, uint64 maxAgeSeconds)",
+  "error FeedPriceZero(uint256 index, bytes21 feedId)",
+  "error FeedDecimalsNegative(uint256 index, bytes21 feedId, int8 decimals)",
+  "error UnknownFeed(bytes21 feedId)",
+  "error UnsupportedPayloadVersion(uint8 version)",
+  "error PayloadTooShort(uint256 length)",
+  "error ReservedOpcode(uint8 opcode)",
+  "error UnknownOpcode(uint8 opcode)",
+  "error InvalidMemoLength(uint8 opcode, uint256 expected, uint256 actual)",
+  "error MemoTooShort(uint256 length)",
+  "error NoMemoData()",
+  "error InvalidProof()",
+  "error ProofExpired(uint64 blockTimestamp, uint64 validUntil)",
+  "error InvalidSourceId(bytes32 expected, bytes32 actual)",
+  "error SourceAddressMismatch(bytes32 expected, bytes32 actual)",
+  "error ReceivingAddressNotRegistered(bytes32 addressHash)",
+  "error DestinationTagNotAllowed(uint256 destinationTag)",
+  "error UnsuccessfulTransaction(uint8 status)",
+  "error ContractPaused()",
+  "error AccountNotDeployed(address expected)",
+] as const;
+
 export const CONTROLLER_ABI = [
   "function execute((bytes32[],(bytes32,bytes32,uint64,uint64,(bytes32,address),(uint64,uint64,string,bytes32,bytes32,bytes32,int256,int256,int256,int256,bool,bytes,bool,uint256,uint8))) proof, bytes data) payable",
   "function nonceOf(address) view returns (uint256)",
   "function computeAccountAddress(string) view returns (address)",
   "function accountOf(string) view returns (address)",
   "function isXrplTransactionConsumed(bytes32) view returns (bool)",
+  ...CONTROLLER_ERRORS,
 ];
 export const controllerInterface = new Interface(CONTROLLER_ABI);
 

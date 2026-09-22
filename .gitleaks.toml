@@ -1,0 +1,34 @@
+# gitleaks configuration for memokit.
+#
+# The repo is full of public blockchain addresses -- contracts, accounts, XRPL destinations --
+# and the default `generic-api-key` rule treats a 40-hex-character value next to a key called
+# something like "tokenAddress" as a credential. Every trace file added since Phase 1 has had to
+# argue one of those away, and a scanner whose findings are routinely dismissed is a scanner
+# nobody reads.
+#
+# So this allowlists exactly one shape: a 0x-prefixed, exactly-40-hex-character value. That is
+# an EVM address and nothing else. It CANNOT hide any of the three secrets this repo actually
+# has to keep out:
+#
+#   a private key      64 hex characters, not 40
+#   an XRPL seed       base58 beginning with 's', not hex
+#   an API key         not hex, and not 0x-prefixed
+#
+# Everything else in the default rule set stays on. Verified by planting each shape and
+# confirming it is still caught -- see the check in PHASE4.md's pre-push routine.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(?:key|api|token|secret|client|passwd|password|auth|access)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\||:|<=|=>|:=|\?=|,)(?:'|\"|\s|=|\x60){0,5}([0-9a-z\-_.=]{10,150})(?:['|\"|\n|\r|\s|\x60|;|\\]|$)'''
+secretGroup = 1
+entropy = 3.5
+keywords = ["key", "api", "token", "secret", "client", "passwd", "password", "auth", "access"]
+
+  [rules.allowlist]
+  description = "EVM addresses: 0x + exactly 40 hex. Too short to be a private key, wrong alphabet for an XRPL seed."
+  regexTarget = "match"
+  regexes = ['''0x[0-9a-fA-F]{40}(?:[^0-9a-fA-F]|$)''']
