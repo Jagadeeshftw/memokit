@@ -88,8 +88,9 @@ Lending (Kinetic) and DEX (SparkDEX V3) integrations run on a Foundry **fork of 
 FDC verification *simulated*; they are not live mainnet transactions. Results are in
 [PHASE2.md](PHASE2.md).
 
-<a id="sdk-quickstart"></a>
-
+<!-- Anchor: #sdk-quickstart, generated from this heading's text. The memokit site links
+     here, so renaming the heading breaks that link. An explicit <a id> does not help --
+     GitHub strips empty anchor tags, so the heading text is the only guarantee. -->
 ## SDK quickstart
 
 `sdk/` is a TypeScript library (not yet published; the name is provisional). The whole path is five

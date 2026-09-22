@@ -14,8 +14,6 @@ npm i @memokit/sdk ethers xrpl      # xrpl is only needed to *send* the payment
 
 Node 20+, ESM. `ethers` v6 is a peer dependency.
 
-<a id="sdk-quickstart"></a>
-
 ## Quickstart: a vault deposit
 
 The Phase 1 acceptance run, in 29 lines. The account must already hold the asset; funding it is
