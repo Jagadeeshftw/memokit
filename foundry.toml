@@ -34,6 +34,10 @@ tab_width = 4
 [rpc_endpoints]
 flare = "https://flare-api.flare.network/ext/C/rpc"
 coston2 = "https://coston2-api.flare.network/ext/C/rpc"
+# Flare's own public RPC prunes state: forked reads of storage it has not already served
+# fail with "missing trie node", even a few blocks behind head. Tests that touch state the
+# cache does not already hold use an archive endpoint instead.
+flare_archive = "https://flare.rpc.thirdweb.com"
 
 # Fork tests: Flare mainnet at a pinned block, proofs built by the SDK through ffi.
 # Simulated verification -- see test/fork/ForkBase.t.sol. ffi stays off in every other profile.

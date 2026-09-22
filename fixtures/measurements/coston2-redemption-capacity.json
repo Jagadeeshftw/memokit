@@ -1,0 +1,39 @@
+{
+  "note": "Coston2's FAssets redemption queue is inventory, not infrastructure: it empties and refills. This file records both states it was measured in. On 2026-09-21 it was empty, redeem() reverted RedeemZeroLots() after every one of memokit's own checks had passed, and the cash-out could only be exercised on a Flare mainnet fork (test/fork/CashOutFork.t.sol). On 2026-09-22 it had refilled and the same instruction ran live end to end -- see fixtures/measurements/cash-out-trace.json. The fork test is kept because it is the only place the queue is guaranteed deep.",
+  "capturedAt": "2026-09-21T10:40:41.472422+00:00",
+  "coston2": {
+    "assetManager": "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA",
+    "lotSize": "10000000",
+    "fxrpTotalSupply": "9151687964132",
+    "redemptionQueueFirst20": "[(7059, 0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC, 30000000 [3e7])] 0",
+    "maxRedemptionFromAgent": {
+      "0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC": "38959050",
+      "0xd5dEFe2c62D48788BB3889534FBFe7Aea0602D64": "40066",
+      "0x5b89514d1F060AdbEA8B7294AFf81ed8dbAa7fC5": "3951772",
+      "0x165c62b4531D28E34c68a8b2aCBF4D0421e4E028": "269035"
+    },
+    "liveRedeemAttempt": {
+      "from": "0x8F1eD3f5355846008A47ce91Fbc49EE1808d43b1",
+      "call": "redeem(1, 'rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE', address(0))",
+      "revert": "0x882ccad9 == RedeemZeroLots()",
+      "accountFxrpBalance": "19100000"
+    }
+  },
+  "flareMainnet": {
+    "assetManager": "0x2a3Fe068cD92178554cabcf7c95ADf49B4B0B6A8",
+    "lotSize": "10000000",
+    "redemptionQueueFirst5": "[(43517 [4.351e4], 0xA69bF2eC0eF91A29B5da634BD4958AA32BaD9fe3, 257940000000 [2.579e11]), (43518 [4.351e4], 0x8eA74D78A03F20597cEE115176f7f8b65271c87A, 56900000000 [5.69e10]), (43519 [4.351e4], 0x0F6AB40fE44aA3AB15B8ff96Df98C6F5865F048E, 150530000000 [1.505e11]), (43521 [4.352e4], 0x8eA74D78A03F20597cEE115176f7f8b65271c87A, 21480000000 [2.148e10]), (43522 [4.352e4], 0x0F6AB40fE44aA3AB15B8ff96Df98C6F5865F048E, 20000000 [2e7])] 43523 [4.352e4]"
+  },
+  "coston2Recheck": {
+    "why": "Re-measured on the day of the live attempt, because the earlier RedeemZeroLots() was an inventory failure and inventory changes. Both readings are within minutes of the trace, and the drop between them shows how shallow the testnet queue is: five tickets before, one after.",
+    "beforeTheAttempt": {
+      "capturedAt": "2026-09-22T12:52Z",
+      "redemptionQueueFirst5": "[(7180, 0xd5dEFe2c62D48788BB3889534FBFe7Aea0602D64, 60000000), (7181, 0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC, 1140000000), (7182, 0x5b89514d1F060AdbEA8B7294AFf81ed8dbAa7fC5, 560000000), (7183, 0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC, 320000000), (7184, 0x165c62b4531D28E34c68a8b2aCBF4D0421e4E028, 260000000)] 7185"
+    },
+    "afterTheAttempt": {
+      "capturedAt": "2026-09-22T13:03:33Z",
+      "redemptionQueueFirst5": "[(7203, 0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC, 20000000)] 0"
+    },
+    "outcome": "redeem(1) succeeded live and was filled from ticket 7180, agent 0xd5dEFe2c62D48788BB3889534FBFe7Aea0602D64 -- the head of the queue at the time. See cash-out-trace.json."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "note": "Full loop: XRPL Testnet payment -> memokit redeem -> XRP back on XRPL Testnet.",
+  "capturedAt": "2026-09-22T13:00:04.018Z",
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "memokitController": "0x0E762EAe8fe53e5247C22E5B52feD7A018150714",
+  "account": "0x9dD656e6FE2f9B46E57CE29265b3C66feCa2d741",
+  "assetManager": "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA",
+  "plan": {
+    "balanceBefore": "19100000",
+    "lotSize": "10000000",
+    "lots": "1",
+    "redeemableAmount": "10000000",
+    "dustLeftBehind": "9100000",
+    "xrplDestination": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+    "redirected": false
+  },
+  "xrplPaymentIn": "A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47",
+  "executeTx": "0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022",
+  "executeBlock": 35694328,
+  "redemption": {
+    "requestId": "53565634",
+    "agentVault": "0xd5dEFe2c62D48788BB3889534FBFe7Aea0602D64",
+    "paymentAddress": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+    "valueUBA": "9998000",
+    "feeUBA": "49990",
+    "lastUnderlyingBlock": "20962288",
+    "lastUnderlyingTimestamp": "1790082523",
+    "paymentReference": "0x46425052664100020000000000000000000000000000000000000000033158c2",
+    "remainingLotsWarning": null,
+    "outcome": "performed"
+  },
+  "xrplPayoutHash": "0xf7858109b0ad251d1bb44227aab73e10f4651587fa30022278aa497a485e9ecd",
+  "xrplBalanceBeforeDrops": "57924820",
+  "xrplBalanceAfterDrops": "66872818",
+  "defaultPath": {
+    "trigger": "both request.lastUnderlyingBlock and request.lastUnderlyingTimestamp have passed without a confirmed payment",
+    "proof": "FDC ReferencedPaymentNonexistence over the request's paymentReference",
+    "paidIn": "agent vault collateral plus pool collateral, on Flare -- not XRP on XRPL",
+    "automatic": false
+  },
+  "latencySeconds": {
+    "xrpl:submit -> xrpl:validated": 6,
+    "xrpl:validated -> fdc:request-submitted": 14,
+    "fdc:request-submitted -> fdc:proof-available": 100,
+    "fdc:proof-available -> memokit:executed": 7,
+    "memokit:executed -> redemption:performed": 193,
+    "total": 321
+  },
+  "explorer": {
+    "execute": "https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022",
+    "xrplIn": "https://testnet.xrpl.org/transactions/A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47",
+    "xrplOut": "https://testnet.xrpl.org/transactions/0xf7858109b0ad251d1bb44227aab73e10f4651587fa30022278aa497a485e9ecd"
+  }
+}

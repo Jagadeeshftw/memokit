@@ -17,7 +17,8 @@
     "migrate": "tsx src/migrateFunds.ts",
     "payout": "tsx src/payout.ts",
     "rescue": "tsx src/cli/rescue.ts",
-    "import-fsa": "tsx src/importFromFsa.ts"
+    "import-fsa": "tsx src/importFromFsa.ts",
+    "cash-out": "tsx src/cashOut.ts"
   },
   "dependencies": {
     "ethers": "^6.13.4",
