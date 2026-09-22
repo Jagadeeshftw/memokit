@@ -1,0 +1,99 @@
+{
+  "note": "One QR-signed instruction, executed by the open executor service with no further human input. The unsigned XRPL Payment was produced by `npm run sign -- --inline`, rendered as a QR, signed by the owner's wallet, and from there the service did everything: it discovered the payment, paid for the attestation, waited for the voting round, simulated, and submitted. Nobody typed a command between the signature and the execution.",
+  "capturedAt": "2026-09-22T13:38:00Z",
+  "network": {
+    "flare": "coston2",
+    "xrpl": "testnet"
+  },
+  "controller": "0x0E762EAe8fe53e5247C22E5B52feD7A018150714",
+  "account": "0x9dD656e6FE2f9B46E57CE29265b3C66feCa2d741",
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "executorAddress": "0x8848d8578756A1110161eEB32E868Be1415F2cD7",
+  "signing": {
+    "how": "sign CLI -> unsigned Payment JSON -> QR -> signed by the key holder, unchanged",
+    "memo": "0xFD inline, 523 bytes: self-contained, so any executor watching could have run it",
+    "commitment": "0x9087f9dc136050b7c35d4db0e845380314d43168b4a1dfb9a38bb532690124cb",
+    "autofilledByTheWallet": {
+      "Sequence": 20924593,
+      "Fee": "12",
+      "LastLedgerSequence": 20962521
+    },
+    "xaman": "not used: credentials are the operator's to create. The same unsigned JSON is what the Xaman payload API takes."
+  },
+  "instruction": {
+    "transfer": {
+      "tokenAddress": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "to": "0x8848d8578756A1110161eEB32E868Be1415F2cD7",
+      "amount": "500000"
+    },
+    "executorFee": {
+      "tokenAddress": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "amount": "200000"
+    },
+    "nonce": "1"
+  },
+  "xrplPayment": "62A583F332DAADDC5BE97FCFEA099B54E97E99989A8BE2267352F3467AE8FD4A",
+  "xrplLedger": 20962503,
+  "requestAttestation": "0x4ba4816fc4b511a93c0b52115d56034e939bf9d0aba224f41c3419ba17ca2865",
+  "votingRoundId": 1462823,
+  "attestationFeeWei": "1000",
+  "execute": "0x1eefa273d1a19fae0db851edcf964fce390edc08cb2f5a2a4de3485b2bd360b4",
+  "executeBlock": 35695573,
+  "gasUsed": "293129",
+  "verifiedFromChain": {
+    "transfersInReceipt": [
+      "0x9dd656e6... -> 0x8848d857... 500000  (the instruction)",
+      "0x9dd656e6... -> 0x8848d857... 200000  (the executor fee, paid to msg.sender)"
+    ],
+    "accountFxrpBefore": "9100000",
+    "accountFxrpAfter": "8400000",
+    "nonceBefore": "1",
+    "nonceAfter": "2"
+  },
+  "secondsInEachState": {
+    "seen": 16,
+    "attesting": 138,
+    "proved": 5,
+    "note": "seen -> executed is 159 s; 87% of it is the FDC voting round"
+  },
+  "transitions": [
+    {
+      "state": "seen",
+      "at": 1790084109211
+    },
+    {
+      "state": "attesting",
+      "at": 1790084125540,
+      "note": "attestation requested in round 1462823"
+    },
+    {
+      "state": "proved",
+      "at": 1790084263554,
+      "note": "proof available"
+    },
+    {
+      "state": "executed",
+      "at": 1790084268308,
+      "note": "executed in block 35695573"
+    }
+  ],
+  "serviceMetrics": {
+    "memokit_executor_payments_seen_total": 11.0,
+    "memokit_executor_declined_total{reason=\"awaiting-preimage\"}": 50.0,
+    "memokit_executor_ticks_total": 20.0,
+    "memokit_executor_attestations_requested_total": 1.0,
+    "memokit_executor_proofs_total": 1.0,
+    "memokit_executor_executions_total{by=\"us\"}": 1.0,
+    "memokit_executor_races_total{outcome=\"won\"}": 1.0,
+    "memokit_executor_receiving_addresses": 1.0,
+    "memokit_executor_pending": 0.0,
+    "memokit_executor_last_tick_seconds": 1790084307.0,
+    "memokit_executor_uptime_seconds": 298.0
+  },
+  "whatTheServiceDeclined": "50 polls across 10 older payments carrying 0xFC commit memos whose preimages it was never given. An executor cannot run a commit instruction without the preimage -- execute takes it as an argument -- so it holds them rather than discarding them. This is the reason --inline exists.",
+  "explorer": {
+    "xrplIn": "https://testnet.xrpl.org/transactions/62A583F332DAADDC5BE97FCFEA099B54E97E99989A8BE2267352F3467AE8FD4A",
+    "requestAttestation": "https://coston2-explorer.flare.network/tx/0x4ba4816fc4b511a93c0b52115d56034e939bf9d0aba224f41c3419ba17ca2865",
+    "execute": "https://coston2-explorer.flare.network/tx/0x1eefa273d1a19fae0db851edcf964fce390edc08cb2f5a2a4de3485b2bd360b4"
+  }
+}

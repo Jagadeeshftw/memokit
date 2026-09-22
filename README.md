@@ -13,9 +13,13 @@ a side effect of `executeDirectMintingWithData`: every instruction mints FXRP an
 direct-minting limits. That coupling is the gap memokit fills. The account is derived from your XRPL
 address alone, so there is nothing to register and no tag to buy.
 
+**An open executor** watches for these payments, pays for the attestation and submits the proof
+for the fee the instruction committed to — so the user needs no Flare key and no script.
+[executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running one.
+
 > **Latency is about two and a half minutes, and that is FDC's round cadence, not this code.**
-> XRPL payment to executed call took 152 s and 162 s in Phase 1, 118 s in Phase 2 and 127 s in
-> Phase 3. About 90% of it
+> XRPL payment to executed call took 152 s and 162 s in Phase 1, 118 s in Phase 2, 127 s in
+> Phase 3 and 159 s through the open executor in Phase 4. About 90% of it
 > is one leg, waiting for the FDC voting round to close and the Data Availability Layer to serve the
 > proof. Nothing here can shorten that leg, so instructions that depend on a price carry a
 > deadline (see [Deadlines](#deadlines)).
@@ -119,6 +123,21 @@ FXRP lot delivers 9.948010 XRP rather than 10.
 Also live on Coston2: the rescue classifier, run against the deployment's real history (7 payments,
 1 executed, 6 attested but never delivered).
 
+### Phase 4: a QR, and nobody at the keyboard
+
+An instruction signed from a QR and executed by the open executor service, with no human input
+after the signature. The service found the payment, paid for the attestation, waited for the
+voting round, simulated, and submitted.
+
+| | |
+|---|---|
+| XRPL Payment | [`62A583F3…FD4A`](https://testnet.xrpl.org/transactions/62A583F332DAADDC5BE97FCFEA099B54E97E99989A8BE2267352F3467AE8FD4A) |
+| requestAttestation | [`0x4ba4816f…2865`](https://coston2-explorer.flare.network/tx/0x4ba4816fc4b511a93c0b52115d56034e939bf9d0aba224f41c3419ba17ca2865) |
+| execute | [`0x1eefa273…60b4`](https://coston2-explorer.flare.network/tx/0x1eefa273d1a19fae0db851edcf964fce390edc08cb2f5a2a4de3485b2bd360b4) |
+| result | 0.5 FTestXRP transferred; 0.2 FTestXRP executor fee paid out of the same balance |
+| latency | 159 s, of which 138 s is the FDC voting round |
+| trace | [`executor-service-run.json`](fixtures/measurements/executor-service-run.json) |
+
 Lending (Kinetic) and DEX (SparkDEX V3) integrations, the FTSOv2 rate bound and the deep-queue
 cash-out run on a Foundry **fork of Flare mainnet** with FDC verification *simulated*; they are not
 live mainnet transactions. Results are in [PHASE2.md](PHASE2.md) and [PHASE3.md](PHASE3.md).
@@ -196,7 +215,7 @@ about 3.5. The derivation is next to the constant in `sdk/src/deadline.ts`.
 ```
 contracts/    diamond, facets, libraries, personal account and beacon
 sdk/          the library: memo codec, offline attestation request, DA client, submit
-executor/     scripts: end-to-end runner, payout, measurements, selector pinning
+executor/     the open executor service, the status API, and the scripts
 scripts/      Foundry deployment
 test/         Solidity tests; test/fork/ runs against a fork of Flare mainnet
 fixtures/     golden wire vectors, pinned Flare selector sets, live traces
@@ -211,7 +230,7 @@ git clone --recurse-submodules <repo-url>
 npm install
 forge build
 forge test              # 145 Solidity tests
-npm test                # 131 TypeScript tests
+npm test                # 138 SDK + 42 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi (fork profile only)
 ```
 
@@ -225,6 +244,15 @@ npm run payout   -w @memokit/executor   # one payment, five transfers
 npm run import-fsa -w @memokit/executor # pull FXRP out of a Flare Smart Accounts account
 npm run cash-out -w @memokit/executor   # redeem FXRP, XRP back on XRPL
 npm run rescue   -w @memokit/executor   # classify every payment an owner sent
+```
+
+Run an executor, or just the status API. See [executor/DEPLOY.md](executor/DEPLOY.md).
+
+```bash
+MIN_FEE=0x0b6A3645c240605887a5532109323A3E12273dc7:100000 \
+  npm run service    -w @memokit/executor   # watch, attest, simulate, execute, get paid
+READ_ONLY=1 npm run status-api -w @memokit/executor   # the API alone: no key, nothing signed
+npm run sign -w @memokit/executor -- --inline --to 0x... --amount 500000 --fee 200000
 ```
 
 Measurements and checks against live infrastructure:
@@ -262,6 +290,10 @@ market movement during the ~150 s an attestation takes, because the oracle moves
 that is what the deadline is for. Use both. Feed decimals are read live rather than committed,
 because 3 of 7 reference feeds report different decimals on Coston2 than on Flare mainnet.
 
+**Simulation before submission.** The open executor simulates every `execute` before sending it,
+so a lost race costs the attestation fee rather than the gas of a reverting transaction, and a
+genuine failure is never mistaken for a busy market. See [PHASE4.md](PHASE4.md).
+
 **Rescue.** An instruction can stall in four places and they all look identical from outside.
 `classifyPayments` sorts every payment an owner sent into seven states and says what is lost in
 each — the carrier payment, the attestation fee and the instruction are three different things.
@@ -280,6 +312,9 @@ What has run against live infrastructure, and what has not:
 | import from Flare Smart Accounts | live | — |
 | cash out to XRPL | live | live |
 | rescue classifier | live | — |
+| open executor service | live | — |
+| status API | live | — |
+| QR-signed instruction | live | — |
 | lending (Kinetic) | — | fork |
 | DEX (SparkDEX V3) | — | fork |
 | FTSOv2 rate bound | — | fork, real oracle |
@@ -302,7 +337,15 @@ Limits, stated rather than left to be discovered:
   step. `eth_getLogs` is capped at 30 blocks on the public RPC, which bounds every backward search.
 - **A Compound-style market reports some failures as a return value, not a revert.** Attach a
   post-condition to any instruction that depends on one.
+- **An executor cannot run a `0xFC` commit instruction without its preimage.** Not "will not" —
+  `execute` takes the preimage as an argument. Sign with `--inline` for anything a stranger's
+  executor should be able to pick up.
+- **Racing is handled but has never been raced.** Every live run so far has had one executor.
+- **The Docker image is written but unbuilt here**, and nothing is deployed. See
+  [PHASE4.md](PHASE4.md).
+- **Xaman is untested against the live API**, for want of developer credentials. Without them the
+  CLI still produces the unsigned transaction and its QR, which any XRPL wallet can sign.
 
-See [PHASE1.md](PHASE1.md), [PHASE2.md](PHASE2.md) and [PHASE3.md](PHASE3.md) for what is built,
-measured and still open. [phase0-report.md](phase0-report.md) has the investigation this is based
+See [PHASE1.md](PHASE1.md), [PHASE2.md](PHASE2.md), [PHASE3.md](PHASE3.md) and
+[PHASE4.md](PHASE4.md) for what is built, measured and still open. [phase0-report.md](phase0-report.md) has the investigation this is based
 on.
