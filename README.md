@@ -88,7 +88,9 @@ Lending (Kinetic) and DEX (SparkDEX V3) integrations run on a Foundry **fork of 
 FDC verification *simulated*; they are not live mainnet transactions. Results are in
 [PHASE2.md](PHASE2.md).
 
-## Using it
+<a id="sdk-quickstart"></a>
+
+## SDK quickstart
 
 `sdk/` is a TypeScript library (not yet published; the name is provisional). The whole path is five
 calls, and a full vault deposit fits in 29 lines: see [`sdk/README.md`](sdk/README.md).
