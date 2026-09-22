@@ -104,6 +104,21 @@ export interface StatusDeps {
   da: DaLayerClient;
   receivers(): Promise<string[]>;
   now?(): number;
+  /**
+   * A non-blocking slice of the DA Layer budget for public lookups.
+   *
+   * Without this, answering "where is my instruction" spends the same ~20 requests a minute
+   * the executor needs to fetch proofs, and enough public traffic starves execution -- the
+   * read path taking the write path's resources, in a process that shares both. So lookups
+   * get a small, separate allowance and take it without waiting: no token means the proof
+   * search is skipped, not queued.
+   *
+   * Skipping is safe because the classifier already treats a negative as "no proof in the
+   * scanned window" rather than "no proof". The answer degrades from "attested, nobody
+   * delivered" to "awaiting attestation", which it already knows how to say, and the state
+   * read from the chain is unaffected.
+   */
+  daBudget?: { tryAcquire(): boolean };
 }
 
 export class NotFound extends Error {}
@@ -242,6 +257,8 @@ export function elapsedByState(transitions: Transition[], now: number): Record<s
  * not "there is none".
  */
 async function hasProof(xrplHash: string, closedAt: number, deps: StatusDeps): Promise<boolean> {
+  // Checked before any work, not before each call, so one lookup cannot spend three tokens.
+  if (deps.daBudget && !deps.daBudget.tryAcquire()) return false;
   try {
     const rebuilt = await rebuildRequest(xrplHash, deps.network);
     if (!rebuilt) return false;

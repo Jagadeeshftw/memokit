@@ -10,6 +10,8 @@ import { resolve } from "node:path";
 import { getAddress } from "ethers";
 import { COSTON2 as SDK_COSTON2, type Network } from "@memokit/sdk";
 import { parseMinimums, type FeePolicyConfig } from "./feePolicy.js";
+import { DEFAULT_LIMITS, type HttpLimits } from "./http.js";
+import { DEFAULT_LOW_BALANCE_WEI } from "./balance.js";
 import type { Level } from "./log.js";
 
 export interface ServiceConfig {
@@ -30,6 +32,15 @@ export interface ServiceConfig {
   /** Give up on an instruction after this many failed attempts at the same stage. */
   maxAttempts: number;
   httpPort: number | null;
+  /** Per-caller and global limits on the HTTP surface. */
+  httpLimits: HttpLimits;
+  /**
+   * Below this, `/healthz` and `/metrics` flag the executor as low on funds.
+   *
+   * A wei value rather than a friendly unit because it is compared against a balance, and a
+   * unit conversion in a threshold is a place for an order-of-magnitude mistake to hide.
+   */
+  lowBalanceWei: string;
   logLevel: Level;
   /** Print what would happen and submit nothing. */
   dryRun: boolean;
@@ -131,6 +142,14 @@ export function loadConfig(env = process.env): ServiceConfig {
     maxAttempts: num("MAX_ATTEMPTS", 8),
     // Read-only exists to serve the API, so it defaults the port on rather than off.
     httpPort: env.HTTP_PORT ? num("HTTP_PORT", 8080) : readOnly ? 8080 : null,
+    httpLimits: {
+      perIpPerMinute: num("RATE_LIMIT_PER_IP_PER_MINUTE", DEFAULT_LIMITS.perIpPerMinute),
+      perIpBurst: num("RATE_LIMIT_PER_IP_BURST", DEFAULT_LIMITS.perIpBurst),
+      globalPerMinute: num("RATE_LIMIT_GLOBAL_PER_MINUTE", DEFAULT_LIMITS.globalPerMinute),
+      maxConcurrentLookups: num("MAX_CONCURRENT_LOOKUPS", DEFAULT_LIMITS.maxConcurrentLookups),
+      cacheSeconds: num("CACHE_SECONDS", DEFAULT_LIMITS.cacheSeconds),
+    },
+    lowBalanceWei: env.LOW_BALANCE_WEI ?? DEFAULT_LOW_BALANCE_WEI.toString(),
     logLevel: (env.LOG_LEVEL as Level) ?? "info",
     dryRun: env.DRY_RUN === "1",
     readOnly,

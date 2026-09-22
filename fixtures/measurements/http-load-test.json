@@ -1,0 +1,65 @@
+{
+  "note": "Load test: can public HTTP traffic starve the executor? Driven against a local instance while a real Coston2 instruction was in flight, so the answer is measured against the thing that actually matters -- whether the instruction still executed, and on time.",
+  "capturedAt": "2026-09-22T18:00:00Z",
+  "why": "The status routes share a process, an event loop and an upstream rate limit with the watch, attest and execute loop. Sharing an upstream budget is the part that does not show up in a latency graph: before this, a /status lookup spent the same ~20 DA Layer requests a minute the executor needs to fetch proofs, so enough public traffic would have stopped execution while every health signal stayed green.",
+  "mitigations": {
+    "splitDaBudget": "3/4 of the DA Layer allowance to the executor (blocking), 1/4 to public lookups (non-blocking). A lookup with no token skips the proof search and answers from the chain alone, which the classifier already reports honestly as 'no proof in the scanned window'.",
+    "perIpRateLimit": "30/min, burst 10, with 429 and Retry-After",
+    "globalRateLimit": "300/min across all callers, so a forged x-forwarded-for spreads a caller across buckets without raising the total",
+    "lookupConcurrencyCap": "10 /status lookups in flight; further ones get 429 immediately rather than queueing behind chain reads",
+    "caching": "/instructions and /metrics cached 5s and served with Cache-Control: max-age=5"
+  },
+  "load": {
+    "windowSeconds": 120,
+    "concurrency": 20,
+    "sent": 6272883,
+    "requestsPerSecond": 52274,
+    "status200": 69,
+    "status429": 6272814,
+    "otherStatus": 0,
+    "socketErrors": 0,
+    "retryAfterHeadersSeen": [
+      "2",
+      "1"
+    ],
+    "latencyMs": {
+      "p50": 0,
+      "p95": 1,
+      "max": 6562
+    }
+  },
+  "executorUnderLoad": {
+    "xrplPayment": "D5EB789CE01C4C79CCBA5333CC6338950DD07EA2EBC06AF4C018BD769B704F4E",
+    "requestAttestation": "0xd51333c45eb04daad158fad15e774ee4c2be1392197b1a8e7ec68b740c8ea8bc",
+    "execute": "0xd20b639c85071c2b1b89a78e315cf572b80aca3b5a450c786834f2eb7f40f75e",
+    "executeBlock": 35703390,
+    "gasUsed": "341619",
+    "seenAt": "17:56:40.747",
+    "attestationRequestedAt": "17:56:58.500",
+    "executedAt": "17:58:52.758",
+    "secondsSeenToExecuted": 132,
+    "unloadedBaselineSeconds": 159,
+    "verdict": "no degradation: 132 s under load against a 159 s unloaded baseline. The difference is voting-round alignment, not load."
+  },
+  "loopHealth": {
+    "ticks": 17,
+    "uptimeSeconds": 261,
+    "secondsPerTick": 15.4,
+    "targetSecondsPerTick": 15,
+    "errorsLogged": 0,
+    "socketErrors": 0,
+    "verdict": "the loop never stalled: 15.4 s per tick against a 15 s target while absorbing 52,274 requests a second"
+  },
+  "whatBound": "All 6.27M requests came from one address, so the per-IP bucket bound, not the global one: 10 burst + 30/min over two minutes = ~70, and 69 were served. The global cap is what bounds a caller who forges the key across many buckets.",
+  "honestly": "Peak latency was 6,562 ms on one request. That is a /status lookup that had already passed the limiter and was waiting on chain reads while the RPC was busy; it is bounded by the concurrency cap rather than by the rate limit, and it delayed nobody but that caller.",
+  "verifiedFromChain": {
+    "executedBy": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D (the deployed executor key)",
+    "transfers": [
+      "0x9dd656e6... -> 0x8848d857... 400000 (the instruction)",
+      "0x9dd656e6... -> 0xd4dfa2b6... 200000 (the executor fee, to msg.sender)"
+    ],
+    "balanceBefore": "20.0 C2FLR",
+    "balanceAfter": "19.7240321 C2FLR",
+    "costOfOneInstruction": "0.2759679 C2FLR"
+  }
+}

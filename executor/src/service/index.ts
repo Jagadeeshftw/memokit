@@ -30,6 +30,7 @@ import { createLogger } from "./log.js";
 import { Metrics } from "./metrics.js";
 import { Store } from "./store.js";
 import { TokenBucket } from "./rateLimit.js";
+import { BalanceWatch } from "./balance.js";
 import { Watcher } from "./watcher.js";
 import { advance, type PipelineDeps } from "./pipeline.js";
 import { controllerChain } from "./chain.js";
@@ -57,7 +58,13 @@ export async function main(): Promise<void> {
   const wallet = config.readOnly ? null : new Wallet(config.privateKey, provider);
   const store = new Store(config.statePath, config.controller);
   const da = new DaLayerClient(config.network.daLayerUrl);
-  const bucket = new TokenBucket(config.daRequestsPerMinute);
+
+  // Two budgets against one upstream limit, split so the read path cannot starve the write
+  // path. The executor's share may wait; the public one may not, and is small -- a lookup
+  // that cannot afford a proof search still answers, it just answers from the chain alone.
+  const publicShare = Math.max(1, Math.floor(config.daRequestsPerMinute / 4));
+  const bucket = new TokenBucket(config.daRequestsPerMinute - publicShare);
+  const publicBucket = new TokenBucket(publicShare, Math.max(1, Math.ceil(publicShare / 2)));
 
   const watcher = new Watcher({
     network: config.network,
@@ -85,7 +92,11 @@ export async function main(): Promise<void> {
     payloadFor: payloadLookup(config.payloadsPath),
   };
 
-  const balance = wallet ? await provider.getBalance(wallet.address) : 0n;
+  const balanceWatch = wallet
+    ? new BalanceWatch(provider, wallet.address, BigInt(config.lowBalanceWei))
+    : null;
+  const balance = balanceWatch ? (await balanceWatch.refresh()).wei : 0n;
+  balanceWatch?.start();
   log.info("starting", {
     version: VERSION,
     mode: config.readOnly ? "read-only (watch and serve, never sign)" : "executor",
@@ -102,8 +113,14 @@ export async function main(): Promise<void> {
   // cannot be the thing that tells them.
   if (wallet && balance === 0n) {
     log.warn("executor balance is zero: it can pay for nothing until funded");
+  } else if (balanceWatch?.current()?.low) {
+    log.warn("executor balance is below the low-water mark", {
+      balance: balanceWatch.current()!.flr,
+      lowBalanceWei: config.lowBalanceWei,
+    });
   }
 
+  let lastTickAt: number | null = null;
   let server: ReturnType<typeof createHttpServer> | null = null;
   if (config.httpPort !== null) {
     server = createHttpServer({
@@ -116,6 +133,10 @@ export async function main(): Promise<void> {
       log,
       version: VERSION,
       receivers: () => watcher.receivers(),
+      daBudget: publicBucket,
+      limits: config.httpLimits,
+      ...(balanceWatch ? { balance: balanceWatch } : {}),
+      lastTickAt: () => lastTickAt,
     });
     server.listen(config.httpPort, () => log.info("http listening", { port: config.httpPort }));
   }
@@ -126,6 +147,7 @@ export async function main(): Promise<void> {
     stopping = true;
     log.info("shutting down", { signal });
     server?.close();
+    balanceWatch?.stop();
     await watcher.close();
     // Nothing needs draining: every stage persists before it returns, so the worst an abrupt
     // stop loses is the current poll.
@@ -151,7 +173,8 @@ export async function main(): Promise<void> {
         }
       }
       metrics.inc("memokit_executor_ticks_total");
-      metrics.set("memokit_executor_last_tick_seconds", Math.round(Date.now() / 1000));
+      lastTickAt = Date.now();
+      metrics.set("memokit_executor_last_tick_seconds", Math.round(lastTickAt / 1000));
     } catch (error) {
       metrics.inc("memokit_executor_errors_total", { stage: "tick" });
       log.error("tick failed", { error: (error as Error).message });
@@ -194,6 +217,8 @@ function describeMetrics(m: Metrics): void {
   m.describe("memokit_executor_rate_limited_total", "Times an upstream rate limit was hit");
   m.describe("memokit_executor_errors_total", "Errors, by pipeline stage");
   m.describe("memokit_executor_pending", "Instructions not yet in a final state");
+  m.describe("memokit_executor_balance_flr", "The executor wallet's native balance, whole FLR");
+  m.describe("memokit_executor_balance_low", "1 when the balance is below the low-water mark");
 }
 
 // Only run when invoked directly, so the tests can import the pieces.

@@ -39,6 +39,12 @@ missing rather than failing forty minutes in.
 | `BACKFILL_LIMIT` | `50` | How many ledger entries to read per address per poll. |
 | `MAX_ATTEMPTS` | `8` | Attempts at a stage before an instruction is parked as `stuck`. |
 | `HTTP_PORT` | off (`8080` in read-only) | Serves `/healthz`, `/metrics`, `/instructions`, `/status/{hash}`. |
+| `LOW_BALANCE_WEI` | `2000000000000000000` (2 C2FLR) | Below this, `/healthz` and `/metrics` flag the executor as low. About eight instructions of headroom. |
+| `RATE_LIMIT_PER_IP_PER_MINUTE` | `30` | Per-caller request rate. |
+| `RATE_LIMIT_PER_IP_BURST` | `10` | How many a caller may make back to back. |
+| `RATE_LIMIT_GLOBAL_PER_MINUTE` | `300` | Across every caller, so a forged `x-forwarded-for` cannot multiply the limit. |
+| `MAX_CONCURRENT_LOOKUPS` | `10` | `/status` lookups in flight before further ones get 429. |
+| `CACHE_SECONDS` | `5` | How long `/instructions` and `/metrics` are reused for. |
 | `READ_ONLY` | off | Watch and serve the status API, never sign. No key needed. |
 | `DRY_RUN` | off | Do everything except spend: no attestation request, no submit. |
 | `LOG_LEVEL` / `LOG_PRETTY` | `info` / off | |
@@ -64,6 +70,37 @@ A `0xFC` commit memo carries only a hash, and `execute` takes the preimage as an
 executor that does not have the preimage **cannot** run the instruction — not "will not". Either
 the instruction author hands it over (`PAYLOADS_FILE`), or the instruction is sent as `0xFD`
 inline, which carries everything and is self-contained. `npm run sign -- --inline` does that.
+
+## Public traffic cannot starve the executor
+
+The status routes share a process, an event loop and an upstream rate limit with the thing that
+moves money. The last of those is the one that does not show up in a latency graph: a `/status`
+lookup wants the DA Layer, and the DA Layer allows about 20 requests a minute in total, so
+enough public traffic would once have stopped execution while every health signal stayed green.
+
+What is in place now:
+
+- **The DA Layer budget is split.** Three quarters to the executor, which may wait; one quarter
+  to public lookups, which may not. A lookup with no token skips the proof search and answers
+  from the chain alone — which the classifier already reports honestly as "no proof in the
+  scanned window", so the answer degrades rather than the service.
+- **Per-caller rate limit**, 30/min with a burst of 10, answering 429 with `Retry-After`.
+- **A global cap** of 300/min behind it, because `x-forwarded-for` is client-supplied: forging
+  it spreads one caller across buckets without raising the total.
+- **A concurrency cap** of 10 on `/status`, the only route that reads the chain. Past it,
+  callers get 429 immediately rather than queueing behind RPC calls.
+- **Five-second caching** on `/instructions` and `/metrics`, served with `Cache-Control`.
+
+Measured rather than asserted, against a local instance with a real instruction in flight
+([`http-load-test.json`](../fixtures/measurements/http-load-test.json)): 6,272,883 requests in
+120 seconds — 52,274 a second — of which 69 were served and the rest refused with 429 and a
+`Retry-After`. No socket errors. **The instruction executed normally throughout**, 132 seconds
+from seen to executed against a 159-second unloaded baseline, and the poll loop held 15.4
+seconds per tick against its 15-second target.
+
+One request peaked at 6.5 seconds: a lookup that had already passed the limiter and was waiting
+on chain reads. It is bounded by the concurrency cap rather than the rate limit, and it delayed
+nobody but that caller.
 
 ## Racing other executors
 
@@ -140,8 +177,8 @@ Same image, same endpoints. Set `READ_ONLY=1` and leave `PRIVATE_KEY` unset.
 
 | Route | |
 |---|---|
-| `GET /healthz` | uptime, pending count, controller |
-| `GET /metrics` | Prometheus text: payments seen, attestations requested and reused, executions, races by outcome, declines, rate limits, errors by stage |
+| `GET /healthz` | uptime, pending count, controller, seconds since the last tick, and the executor wallet's balance with a `lowBalance` flag |
+| `GET /metrics` | Prometheus text: payments seen, attestations requested and reused, executions, races by outcome, declines, rate limits, errors by stage, HTTP requests by route and outcome, and `memokit_executor_balance_flr` / `memokit_executor_balance_low` |
 | `GET /instructions?limit=&state=` | recent instructions, newest first |
 | `GET /status/{xrplHash}` | one instruction's position in the state machine, with seconds in each state |
 
