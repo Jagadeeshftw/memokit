@@ -145,7 +145,7 @@ Five checks, then the FDC call:
 5. `xrplProviderWalletHashes[responseBody.receivingAddressHash] != 0` — **← the gate you would remove**
 6. `ContractRegistry.getFdcVerification().verifyPayment(proof)`
 
-Check 5 is the whole permissioning story of Rail A. The XRPL Payment must land on a Flare-operated provider wallet, and there is exactly **one** per chain:
+Check 5 is the whole permissioning story of Rail A. The XRPL Payment must land on a provider wallet registered on the controller, and there is exactly **one** per chain. *(Corrected 2026-09-23: this originally said "Flare-operated". The chain shows the wallet is registered on Flare's controller; it does not show who holds its key.)*
 
 | Network | XRPL provider wallet | sourceId (read on-chain) |
 |---|---|---|
@@ -419,7 +419,7 @@ All are hackathon-scale (0 stars, single-author, ~2-week lifespans). Official su
 
 **Honest read.** No one is building what you described. But the reason is not that the idea is unoccupied territory — it is that **Flare already shipped the arbitrary-call capability itself** (`0xFF`/`0xFE`, live on mainnet, in daily use). Your differentiation cannot be "arbitrary calls from an XRPL memo." It has to be the three things Flare's design genuinely does not offer:
 
-1. **No provider-wallet allowlist.** Rail A requires payment to one Flare-operated XRPL address per chain. A permissionless rail lets anyone register a receiving address, or derives one per account.
+1. **No provider-wallet allowlist.** Rail A requires payment to one XRPL address per chain, registered on the controller *(corrected 2026-09-23 from "Flare-operated", which the chain does not show)*. A permissionless rail lets anyone register a receiving address, or derives one per account.
 2. **No FAssets coupling.** Rail B's arbitrary calls only exist as a side-effect of minting FXRP, and inherit direct-minting hourly/daily caps, a large-mint delay, and dependence on an agent with direct minting enabled. A rail built on `XRPPayment` attestations directly has none of that and can act on assets the account already holds.
 3. **No governance pause or single global executor.** FSA is owner-controlled with a pause facet, a 1-hour timelock and one protocol executor. An open executor set with no pause is a materially different trust model.
 

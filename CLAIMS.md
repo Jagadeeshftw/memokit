@@ -1,6 +1,13 @@
 # Claim ledger
 
-Every factual claim the [README](README.md) makes, with the evidence behind it. The site copy and
+Every factual claim the [README](README.md) makes, with the evidence behind it.
+
+**This ledger once stated an identity it could not back.** Rows below called `0xcA0Bf4Cb…` "Flare's
+operator", from nothing more than the fact that its transactions go to Flare's FSA controller. That
+was an inference written as fact, and it reached a grant draft before it was caught. It was
+corrected on 2026-09-23, and the "Who an address belongs to" row below is the rule that replaces
+it. A name is only chain-stated when a contract states it — Flare's Contract Registry naming
+`0x434936d4…` `MasterAccountController`, for example — or when an official source does. The site copy and
 the grant application are built from this file. A claim that is not here should not be made, and a
 claim should never be stated more strongly than its row.
 
@@ -18,7 +25,7 @@ audit found an error, the README has been corrected and the row says what change
 | **Open** | Not done, or not verified. | — |
 
 Test suites as of this audit: **145** Solidity (`forge test`), **24** fork (`npm run test:fork`),
-**138** SDK and **63** executor (`npm test`).
+**147** SDK and **63** executor (`npm test`).
 
 ## Easy to overstate
 
@@ -35,6 +42,8 @@ the right-hand column or something no stronger.
 | No FAssets mint in the path | **Live, checked on two runs**: `totalSupply` identical across the execute block for the Phase 1 vault deposit and the Phase 2 payout. | "no mint in the path; totalSupply checked unchanged on live runs" | "verified on every run" |
 | Mainnet | **Open.** No mainnet deployment and no mainnet transaction. | "testnet" | anything implying mainnet |
 | Xaman signing | **Open.** Built, never run against the live Xaman API. | "unsigned transaction and QR, signable by any XRPL wallet" | "Xaman integration" as a working feature |
+| **Who an address belongs to** | **An inference, unless a contract or an official source names it.** The chain states what an address *did*, never who controls it. | "`0xcA0Bf4Cb…`, the FSA controller's main relayer — an EOA whose recent transactions all go to that controller" | "Flare's operator", "a third party", or any name the chain does not state |
+| Attestation reuse on the import path | **Live once** (import run 3), and one path of it — the fallback when a reused round produces no proof — has never run | "the import reuses an identical attestation already on chain instead of paying for another" | "memokit never pays for duplicate attestations": the executor service does not check yet (deferred, below) |
 
 ## Claims, by README section
 
@@ -69,9 +78,14 @@ the right-hand column or something no stronger.
 |---|---|---|
 | FSA instruction `0x01` moves FXRP from an FSA account to a memokit account | **Live** | run 1 XRPL [`3EB2AABB…`](https://testnet.xrpl.org/transactions/3EB2AABBB0B78B7C96D08BE259573C2D6AB5366C6A0AE24C124DA1507586A992) → [`0x7faeb3ec…`](https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84); run 2 XRPL [`3B2780C1…`](https://testnet.xrpl.org/transactions/3B2780C10EB02D085C5AFCE50AAC999FF0E9EE246AFF3004CD397C00C1E8E453) → [`0xe7f4ac74…`](https://coston2-explorer.flare.network/tx/0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b) |
 | FSA 10.0 → 5.0 → 1.0, memokit 10.1 → 15.1 → 19.1 FTestXRP | **Live** | archive state at blocks 35644916/7 and 35645079/80, two endpoints agreeing; `fsa-import-run1-trace.json`, `fsa-import-trace.json`. *Run 1 was previously derived by subtraction; the derivation was correct.* |
-| Run 1 was relayed by Flare's own operator | **Live** | `0x7faeb3ec…` sent by `0xcA0Bf4Cb…` |
+| Run 1 was relayed by another address, not by memokit | **Live** | `0x7faeb3ec…` sent by `0xcA0Bf4Cb…`: an EOA whose last 200 transactions all go to the FSA controller. **Unidentifiable**: no contract or official source names it. *Previously labelled "Flare's own operator" — an inference; corrected.* |
 | Our losing relay cost no gas | **Live** | no transaction from `0x8848d857…` to the FSA controller in blocks 35644912–35644947. *PHASE3.md said it "reverted"; it was refused in simulation. Corrected.* |
-| Flare's operator relays `0x01` for any user; `executeInstruction` has no access control | **Live** | run 1 relayed by the operator; a simulation from an unrelated EOA reverts `InvalidPaymentAmount`, a validation error |
+| Another relayer executes `0x01` for arbitrary users; `executeInstruction` has no access control | **Live** | `0xcA0Bf4Cb…` relayed runs 1 and 3 with no arrangement with us; a simulation from an unrelated EOA reverts `InvalidPaymentAmount`, a validation error, not an authorisation one |
+| The FSA controller is Flare's | **Live** (official source) | Flare's Contract Registry maps `MasterAccountController` to `0x434936d4…`, read 2026-09-23 |
+| The import payment goes to a provider wallet registered on that controller | **Live** | the controller's `xrplProviderWalletHashes` gate accepts `rEyj8…`: every import passed it. Who holds that wallet's key is **not** on chain. *phase0 and the SDK said "Flare-operated" / "Flare's provider wallet"; corrected.* |
+| Someone else requested an identical attestation first, in both paid imports | **Live** | `0x096103b7…`, blocks 35644791 and 35645002, byte-identical `Payment` requests, same voting round as ours. An EOA whose recent transactions are all `requestAttestation`, mostly for payments to `rEyj8…`. **Unidentifiable.** |
+| The import reuses an identical attestation instead of paying for another | **Live, once** | import run 3: XRPL [`5B804958…`](https://testnet.xrpl.org/transactions/5B8049580FB50D4F8DF4E8849730A46E982FC1FBBFE9007F19C529403832AF02), reused request `0x1953b81c…` (block 35728808, round 1463556), execute [`0x488f0935…`](https://coston2-explorer.flare.network/tx/0x488f0935be2cb1270a9b333fd95c6ba237f888c6791778b899c58a0f8a7a6bc6); FdcHub shows no request from us for that payment. `fsa-import-run3-trace.json`. |
+| One proof covers every identical copy of a request, served for the first copy's round | **Live** (sampled) | 24 of 24 randomly sampled duplicated requests from 20,000 blocks of Coston2 history (10 single-round, 14 cross-round), plus both paid imports, read 2026-09-23. By construction, too: the DA Layer is keyed by (round, request bytes), not by requester. **Not ruled out:** a first copy whose round attests nothing; the import falls back to paying if so, and that fallback has never run. |
 | Cash-out: one XRPL payment redeems FXRP and XRP arrives back on XRPL | **Live** | XRPL in [`A92E0E7C…`](https://testnet.xrpl.org/transactions/A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47) → execute [`0x4527b740…`](https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022) → XRPL payout [`F7858109…`](https://testnet.xrpl.org/transactions/F7858109B0AD251D1BB44227AAB73E10F4651587FA30022278AA497A485E9ECD) |
 | **148 s** from XRPL submit to XRP delivered on XRPL; the agent paid 21 s after the execute | **Live** | payout ledger 20961833 closed 12:57:11Z; submit 12:54:42Z; execute block 12:56:49Z. *README and PHASE3.md said "321 s until the XRP landed" and "193 s for the agent to pay". Both wrong; corrected.* |
 | Flare confirmed the payout 297 s after submit | **Live** | `RedemptionPerformed`, block 35694411, 12:59:40Z. *321 s was when the tracker noticed, polling every 15 s, not a chain event.* |
@@ -96,6 +110,7 @@ the right-hand column or something no stronger.
 | Coston2 charges 650 gwei | **Live** | `eth_gasPrice`, and `effectiveGasPrice` on every Phase 4 receipt, re-read 2026-09-23 |
 | An executor cannot run a `0xFC` instruction without its preimage | **Tested** + **Live** | `execute(proof, data)` takes it as an argument; the Phase 4 service held ten commit-memo payments it could not run |
 | Simulation before every submission | **Tested** | `executor/test/pipeline.test.ts` ("simulates before submitting, every time") |
+| The executor service avoids paying for duplicate attestations | **Open — deferred to mainnet work, deliberately.** | It reuses only a proof that has already *finalised*, which never happens for a payment it sees live, and it does not read `AttestationRequest` events. **Why deferred:** it saves nothing today — one executor, and in all seven live memokit runs nobody else requested the same attestation — and doing it properly means holding the request until late in the voting round, which risks adding a round (~90 s). **What deferring costs:** nothing on Coston2 (~0.054 C2FLR per duplicate); on mainnet, ~20.05 FLR per duplicate request, so up to (N−1) × 20 FLR per instruction once N executors watch the same address. Noted at the decision point in `executor/src/service/pipeline.ts`. |
 
 ### Safety machinery
 
@@ -152,5 +167,7 @@ All re-read on 2026-09-23.
 | FTestXRP (Coston2 AssetManager's `fAsset()`) | `0x0b6A3645c240605887a5532109323A3E12273dc7` |
 | Deployed executor key | `0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D` |
 | FSA controller (Coston2) | `0x434936d47503353f06750Db1A444DBDC5F0AD37c` |
-| FSA provider wallet (XRPL Testnet) | `rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq` |
+| Provider wallet registered on the FSA controller (XRPL Testnet; key holder not on chain) | `rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq` |
+| FSA controller's main relayer (unidentifiable EOA) | `0xcA0Bf4Cbc1Cf8c4b5FD7984b42AF907099084466` |
+| High-volume attestation requester (unidentifiable EOA) | `0x096103b7541bc4Ad716ABE6CfCddA728819f4b2f` |
 | memokit receiving address (XRPL Testnet) | `rDfVHUx5SMgw5wwqjvzgFEFCnqW5CCGWyW` |

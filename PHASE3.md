@@ -195,8 +195,10 @@ What the verification established about FSA's payment-reference instruction `0x0
 - byte 1 (wallet id) is not validated on this instruction at all;
 - the protocol fee is `getInstructionFee(0x01)`, 1000 drops on Coston2.
 
-On the open question of whether Flare's operator relays for any user: it does, and memokit does
-not depend on it either way. `executeInstruction` has no access control — simulating it from an
+On the open question of whether someone else relays FSA instructions for arbitrary users: in
+practice, yes. `0xcA0Bf4Cb…` — the FSA controller's main relayer, an EOA whose recent transactions
+all go to that controller — relayed our imports in runs 1 and 3 without any arrangement. The chain
+does not say who operates it. memokit does not depend on it either way. `executeInstruction` has no access control — simulating it from an
 unrelated EOA reverts `InvalidPaymentAmount`, a validation error rather than an authorisation one
 — so memokit can relay the proof itself.
 
@@ -204,7 +206,7 @@ Both halves are on chain, which is better evidence than either alone:
 
 | Run | Amount | Relayed by | Transaction |
 |---|---|---|---|
-| 1 | 5.0 FTestXRP | Flare's operator `0xcA0Bf4Cb…` | [`0x7faeb3ec…7d84`](https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84) |
+| 1 | 5.0 FTestXRP | another relayer, `0xcA0Bf4Cb…` | [`0x7faeb3ec…7d84`](https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84) |
 | 2 | 4.0 FTestXRP | us | [`0xe7f4ac74…106b`](https://coston2-explorer.flare.network/tx/0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b) |
 
 FSA account 10.0 → 5.0 → 1.0, memokit account 10.1 → 15.1 → 19.1, read from archive state at each
@@ -212,13 +214,24 @@ execute block rather than from script read-back. Run 1 is the more interesting o
 lost the race. It was refused with `TransactionAlreadyExecuted` in simulation and never broadcast —
 there is no transaction from us to the FSA controller in the blocks around it — so it cost no gas.
 Losing that race is treated as success, because it is: the instruction executed. The script detects
-it, finds the transfer Flare's operator produced, and records who relayed it. End to end, run 2
-took 162 s; run 1 took 173 s from XRPL ledger close to Flare's operator delivering it.
+it, finds the transfer the other relayer produced, and records the address that sent it. End to
+end, run 2 took 162 s; run 1 took 173 s from XRPL ledger close to the other relayer delivering it.
 
 One more thing the chain shows, found when run 1 was re-read on 2026-09-23. **In both runs, an
 attestation for the same XRPL payment was requested by `0x096103b7…` three to four blocks before
 ours.** Our request was redundant both times: it cost the fee and about 83,000 gas and bought
-nothing. On the FSA import path, somebody on Flare's side is already paying for the attestation.
+nothing. `0x096103b7…` is an EOA whose recent transactions are all `requestAttestation` calls,
+mostly for payments to the FSA controller's provider wallet. The chain does not say who operates
+it, and this page does not guess.
+
+The import script now checks for exactly this before paying: it rebuilds its request bytes, scans
+FdcHub's `AttestationRequest` events from the XRPL close for an identical request, and reuses that
+request's voting round if it finds one, paying for its own only if that round produces no proof.
+**Run 3, on 2026-09-23, paid no attestation fee.** The check found `0x096103b7…`'s identical
+request 7 blocks after the XRPL close, the proof for its round was served, and there is no request
+from us on chain for that payment. Another relayer, `0xcA0Bf4Cb…` again, executed it: 0.5 FTestXRP,
+FSA 1.0 → 0.5, memokit 7.35 → 7.85, 124 s end to end
+([`fsa-import-run3-trace.json`](fixtures/measurements/fsa-import-run3-trace.json)).
 
 Run 1's trace was reconstructed from the chain on 2026-09-23, because the script's own record of it
 was overwritten by run 2: [`fsa-import-run1-trace.json`](fixtures/measurements/fsa-import-run1-trace.json).
@@ -364,7 +377,7 @@ node has not already served fail with "missing trie node" — at a pinned block 
 behind head. The other fork tests only survived because forge had cached their reads. `foundry.toml`
 now carries a separate `flare_archive` endpoint.
 
-**FSA's `executeInstruction` has no access control**, and Flare's operator will race you to it. See
+**FSA's `executeInstruction` has no access control**, and the controller's main relayer will race you to it. See
 [§4](#4-import-from-flare-smart-accounts).
 
 **A testnet's FAssets inventory is not infrastructure.** It empties and refills on other people's

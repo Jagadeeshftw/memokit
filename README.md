@@ -101,11 +101,15 @@ Two live runs closed the two open directions.
 
 **Import from Flare Smart Accounts.** An XRPL address owns a different account under each protocol,
 so FXRP held in an FSA account was unreachable without an EVM wallet. It is now reachable from XRPL
-alone: 5.0 FTestXRP relayed by Flare's own operator
+alone: 5.0 FTestXRP relayed by another address, `0xcA0Bf4Cb…` — the FSA controller's main
+relayer, an EOA whose recent transactions all go to that controller
 ([`0x7faeb3ec…7d84`](https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84)),
 then 4.0 relayed by us
 ([`0xe7f4ac74…106b`](https://coston2-explorer.flare.network/tx/0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b)),
-the second run 162 s end to end. FSA account 10.0 → 5.0 → 1.0, memokit account 10.1 → 15.1 → 19.1,
+the second run 162 s end to end. In both, another address had already requested the identical
+attestation, so ours was paid for nothing; the import script now checks FdcHub for that first, and
+a third run on 2026-09-23 reused it and paid no attestation fee
+([run 3](fixtures/measurements/fsa-import-run3-trace.json)). FSA account 10.0 → 5.0 → 1.0, memokit account 10.1 → 15.1 → 19.1,
 read from archive state at each execute block
 ([run 1](fixtures/measurements/fsa-import-run1-trace.json),
 [run 2](fixtures/measurements/fsa-import-trace.json)).
@@ -221,7 +225,7 @@ Attestation takes minutes and markets do not wait, so an instruction that touche
 commit to a deadline and a minimum output in its own calldata. Both are then inside the hash.
 `DEFAULT_DEADLINE_SECONDS` is **900**. It was derived from Phase 1's worst of 162 s, plus one missed
 90 s round, times 3.5. The worst measured since is 173 s from XRPL ledger close (the first FSA
-import, which Flare's operator delivered), about 180 s from submit; against that, 900 s is still
+import, which another relayer delivered), about 180 s from submit; against that, 900 s is still
 about 3.3 times a slow-but-ordinary path. The derivation is next to the constant in
 `sdk/src/deadline.ts`.
 
@@ -245,7 +249,7 @@ git clone --recurse-submodules <repo-url>
 npm install
 forge build
 forge test              # 145 Solidity tests
-npm test                # 138 SDK + 63 executor tests
+npm test                # 147 SDK + 63 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi (fork profile only)
 ```
 

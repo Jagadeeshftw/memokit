@@ -28,17 +28,24 @@
  *   who may relay       anyone: `executeInstruction` is external and `notPaused`, with no
  *                       access control. Simulating it from an unrelated EOA reverts with
  *                       `InvalidPaymentAmount`, a validation error, not an authorisation one.
- *                       So memokit does not depend on Flare's operator choosing to serve it.
+ *                       So memokit does not depend on any particular relayer choosing to
+ *                       serve it.
  *
- * So one XRPL payment to Flare's provider wallet, with the recipient set to the user's memokit
- * account, moves the balance across using Flare's rail rather than a bridge of our own.
+ * So one XRPL payment to the provider wallet registered on Flare's FSA controller, with the
+ * recipient set to the user's memokit account, moves the balance across using Flare's rail
+ * rather than a bridge of our own.
+ *
+ * On names: the controller is Flare's because Flare's own Contract Registry names it
+ * `MasterAccountController`. The provider wallet is *registered on* that controller -- the
+ * `xrplProviderWalletHashes` gate accepts it, and every live import passed that gate. Who holds
+ * the wallet's key is not something the chain says, so this code does not say it either.
  */
 import { Contract, getAddress, hexlify, type Provider } from "ethers";
 
 /** Flare Smart Accounts' MasterAccountController: the same address on Coston2 and Flare. */
 export const FSA_CONTROLLER = "0x434936d47503353f06750Db1A444DBDC5F0AD37c";
 
-/** Flare's XRPL provider wallet on Coston2. Payments carrying FSA references go here. */
+/** The XRPL provider wallet registered on the FSA controller, on Coston2. FSA-reference payments go here. */
 export const FSA_RECEIVING_COSTON2 = "rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq";
 
 /** FSA instruction id for "FXRP transfer": type 0 (FXRP), command 1 (transfer). */

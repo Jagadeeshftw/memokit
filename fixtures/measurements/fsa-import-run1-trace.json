@@ -44,7 +44,8 @@
   "fsaExecuteTx": "0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84",
   "fsaExecuteBlock": 35644917,
   "relayedBy": "0xcA0Bf4Cbc1Cf8c4b5FD7984b42AF907099084466",
-  "relayedByFlareOperator": true,
+  "relayedByUs": false,
+  "relayerNote": "Renamed 2026-09-23 from 'relayedByFlareOperator'. relayedBy is an address; nothing on chain names who operates it, so the trace no longer labels it.",
   "ourRelay": "Never reached the chain. No transaction from 0x8848d857... to the FSA controller exists in blocks 35644912-35644947: the loss was caught before broadcast, so it cost no gas. PHASE3.md's 'reverted TransactionAlreadyExecuted' describes the simulated call, not a mined transaction.",
   "transferInExecuteReceipt": "0xa7f3a5ee... -> 0x8f1ed3f5... 5000000 (FTestXRP)",
   "balances": {
@@ -64,7 +65,7 @@
   "chainLatencySeconds": {
     "xrpl:closed -> first attestation request (not ours)": 13,
     "xrpl:closed -> our attestation request": 18,
-    "xrpl:closed -> fsa:executed (by Flare's operator)": 173
+    "xrpl:closed -> fsa:executed (by another relayer)": 173
   },
   "explorer": {
     "fsaExecute": "https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84",
