@@ -58,6 +58,8 @@ export interface HttpDeps extends StatusDeps {
   balance?: BalanceWatch;
   /** Reported by `/healthz` so a stalled loop is visible next to a healthy socket. */
   lastTickAt?: () => number | null;
+  /** The boot-time check that this process holds no secret it should not. */
+  audit?: { present: string[]; clean: boolean; checked: number };
 }
 
 export function createHttpServer(deps: HttpDeps): Server {
@@ -132,6 +134,18 @@ async function handle(
       tracked: deps.store.all().length,
       controller: deps.store.controller,
       lastTickSecondsAgo: lastTick === null ? null : Math.round((Date.now() - lastTick) / 1000),
+      // Published so the claim "this deployment holds no XRPL seed" is checkable by anyone
+      // rather than taken on trust. Names only, never values -- and a clean audit reports an
+      // empty list, so the field says the same thing whether or not you believe the summary.
+      ...(deps.audit
+        ? {
+            secretAudit: {
+              clean: deps.audit.clean,
+              checkedNames: deps.audit.checked,
+              unexpectedSecretsPresent: deps.audit.present,
+            },
+          }
+        : {}),
       // Present only when there is a wallet. A read-only deployment has no balance to report
       // and saying "0" would be a lie about a service that is working exactly as intended.
       ...(balance

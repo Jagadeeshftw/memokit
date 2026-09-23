@@ -141,27 +141,90 @@ docker run --rm \
   memokit-executor
 ```
 
-The image carries no key and no configuration. `STATE_FILE` defaults to `/data/executor-state.json`
-inside it, and `/data` is a volume.
+The image carries no key and no configuration. `STATE_FILE` defaults to
+`/data/executor-state.json`; mount a volume there.
+
+The container starts as root only long enough for `docker-entrypoint.sh` to take ownership of
+`/data`, then drops to the unprivileged `node` user before the service runs. That dance is
+needed because a mounted volume arrives owned by root — see "What the first deploy got wrong"
+below.
+
+The build loads the service's whole module graph (`RUN node … import(…)`) before it finishes, so
+a dependency that resolves wrongly fails the build rather than the boot.
 
 ## Railway
 
-Railway builds the Dockerfile at the repository root without further configuration.
+This is how the live deployment was made, with the CLI. Every step was run.
 
-1. **New Project → Deploy from GitHub repo**, point it at this repository. It detects the
-   `Dockerfile`; no build command or start command is needed.
-2. **Variables**: `PRIVATE_KEY`, `MIN_FEE`, and `HTTP_PORT=8080`. Railway injects `PORT`, which
-   this service does not read — set `HTTP_PORT` explicitly so the health check and the public
-   URL agree.
-3. **Volume**: add one mounted at `/data`. Without it a redeploy starts with an empty state
-   file, which is safe but re-reads the ledger and loses the status timestamps.
-4. **Health check path**: `/healthz`. It returns 200 with the pending count as soon as the
-   service is up.
-5. **Networking**: generate a domain if you want the status API reachable. Everything it serves
-   is already public information on two public chains; there is nothing there to protect.
+```bash
+railway init --name memokit-executor
+railway add --service memokit-executor
+railway link --project memokit-executor --service memokit-executor --environment production
 
-A funded key is the only prerequisite. On Coston2 an attestation costs 1000 wei and an execute
-costs about 300,000 gas, so a few C2FLR from the faucet runs it for a long time.
+# The key goes straight from wherever you generated it into Railway. Never through a file in
+# the repo, never echoed.
+railway variables --skip-deploys \
+  --set "PRIVATE_KEY=$KEY" \
+  --set "MIN_FEE=0x0b6A3645c240605887a5532109323A3E12273dc7:100000" \
+  --set "HTTP_PORT=8080" \
+  --set "STATE_FILE=/data/executor-state.json" \
+  --set "REFUSE_IF_SECRETS_PRESENT=1"
+
+railway volume add --mount-path /data
+railway up --detach          # builds the Dockerfile at the repository root
+railway domain               # generates the public *.up.railway.app URL
+```
+
+1. **Use a key made for the executor, and only for it.** Never the key that deployed the
+   contracts: an executor is a machine on the public internet and a deployer key is an admin
+   key. The live one is `0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D`, generated for this and
+   funded with 20 C2FLR.
+2. **`HTTP_PORT` explicitly.** Railway injects `PORT`, which this service does not read. With
+   `HTTP_PORT=8080` and the Dockerfile's `EXPOSE 8080`, Railway routes the domain to it without a
+   target port being set.
+3. **`REFUSE_IF_SECRETS_PRESENT=1`.** The service checks its own environment at boot for
+   variables it must never hold — XRPL seeds, a deployer key, Xaman's secret — and with this set,
+   refuses to start if it finds one. The result is published on `/healthz` as `secretAudit`, so
+   anyone can check the claim instead of trusting it.
+4. **A volume at `/data`.** Without one a redeploy starts with an empty state file: safe, but it
+   re-reads the ledger and loses the status timestamps.
+5. **Health check path `/healthz`.** 200 as soon as the service is up, with the balance.
+
+### Funding it
+
+Size it from what an instruction actually costs, not from habit. Coston2 charges **650 gwei**,
+so one complete instruction is 0.25–0.28 C2FLR, not the fraction of a cent an EVM habit
+suggests:
+
+| | gas | C2FLR |
+|---|---|---|
+| `requestAttestation` | 82,947 | 0.054 |
+| `execute` | 293,129–341,619 | 0.19–0.22 |
+| **one instruction** | | **0.25–0.28** |
+
+20 C2FLR is therefore about 75 instructions. `/healthz` flags `lowBalance` below 2 C2FLR — about
+eight instructions of warning.
+
+### What the first deploy got wrong
+
+Three things, none of them visible in a local run. All three are fixed in the files; they are
+recorded because each one is the kind of thing that recurs.
+
+1. **Railway refuses `VOLUME` in a Dockerfile.** The first build failed at parse time:
+   `dockerfile invalid: docker VOLUME at Line 41 is not supported, use Railway Volumes`. The
+   Dockerfile now creates `/data` and leaves mounting to the platform.
+2. **The container resolved the wrong ethers and died at boot.** Something in the Foundry-side
+   toolchain depends on ethers 5, and npm was free to hoist that one to the root, in front of
+   the ethers 6 the SDK imports: `SyntaxError: Named export 'AbiCoder' not found. The requested
+   module 'ethers' is a CommonJS module`. Every local run goes through `tsx` and resolves from
+   the workspace, so it never showed. The root `package.json` now names `ethers ^6` so the
+   hoisted copy is the right one, and the build-time import check proves it on every build — it
+   caught this very failure on the second attempt, at build time instead of boot.
+3. **The volume arrived owned by root, and the service runs as `node`.** Every write of the
+   state file failed with `EACCES`. That is not fatal, which is what made it dangerous: the
+   service kept executing and silently lost its memory across restarts, which would have meant
+   paying for attestations twice. The entrypoint now takes ownership of `/data` and then drops
+   privileges.
 
 ### Running only the status API
 
@@ -177,10 +240,12 @@ Same image, same endpoints. Set `READ_ONLY=1` and leave `PRIVATE_KEY` unset.
 
 | Route | |
 |---|---|
-| `GET /healthz` | uptime, pending count, controller, seconds since the last tick, and the executor wallet's balance with a `lowBalance` flag |
+| `GET /healthz` | uptime, pending count, controller, seconds since the last tick, the executor wallet's balance with a `lowBalance` flag, and `secretAudit` — the boot-time check that the process holds no secret it should not |
 | `GET /metrics` | Prometheus text: payments seen, attestations requested and reused, executions, races by outcome, declines, rate limits, errors by stage, HTTP requests by route and outcome, and `memokit_executor_balance_flr` / `memokit_executor_balance_low` |
 | `GET /instructions?limit=&state=` | recent instructions, newest first |
 | `GET /status/{xrplHash}` | one instruction's position in the state machine, with seconds in each state |
+
+The live deployment is at **https://memokit-executor-production.up.railway.app**.
 
 `/status` is the Phase 3 classifier, not a second implementation of it. The classifier decides
 the state from the chain and the ledger; the service only adds the timestamps, and says so when

@@ -22,7 +22,7 @@ import {
 } from "@memokit/sdk";
 import { DaLayerClient } from "@memokit/sdk/fdc";
 import { rebuildRequest, findProofNearClose } from "./attestation.js";
-import type { Store, TrackedState, Transition } from "./store.js";
+import { FINAL, type Store, type TrackedState, type Transition } from "./store.js";
 
 /** The published vocabulary. One term per place an instruction can be. */
 export type StatusState = TrackedState;
@@ -237,12 +237,19 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
  *
  * The point of the whole endpoint: "attesting: 104" is what makes a two and a half minute
  * wait legible instead of looking like a hang.
+ *
+ * The clock stops at a final state. "executed: 33430" is not a duration anything spent -- it
+ * is how long ago it finished -- and a status page that renders every entry here as time
+ * spent waiting would show a completed instruction as nine hours stuck. So a final state is
+ * absent from the map; when it was reached is on its transition.
  */
 export function elapsedByState(transitions: Transition[], now: number): Record<string, number> {
   const out: Record<string, number> = {};
   for (let i = 0; i < transitions.length; i++) {
     const from = transitions[i];
-    const until = transitions[i + 1]?.at ?? now;
+    const next = transitions[i + 1];
+    if (!next && FINAL.has(from.state)) break;
+    const until = next?.at ?? now;
     out[from.state] = (out[from.state] ?? 0) + Math.max(0, Math.round((until - from.at) / 1000));
   }
   return out;

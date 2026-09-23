@@ -31,6 +31,7 @@ import { Metrics } from "./metrics.js";
 import { Store } from "./store.js";
 import { TokenBucket } from "./rateLimit.js";
 import { BalanceWatch } from "./balance.js";
+import { auditEnvironment, ForbiddenSecretsPresent } from "./secrets.js";
 import { Watcher } from "./watcher.js";
 import { advance, type PipelineDeps } from "./pipeline.js";
 import { controllerChain } from "./chain.js";
@@ -51,6 +52,20 @@ export async function main(): Promise<void> {
   }
 
   const log = createLogger({ level: config.logLevel, base: { service: "memokit-executor" } });
+
+  // Before anything connects. A deployment that copied a local .env wholesale should find out
+  // here, not from whoever notices later.
+  const audit = auditEnvironment();
+  if (!audit.clean) {
+    log.warn("this environment holds secrets an executor does not need", {
+      present: audit.present,
+      note: "an executor only reads the XRP Ledger; it never signs for it",
+    });
+    if (process.env.REFUSE_IF_SECRETS_PRESENT === "1") {
+      console.error(new ForbiddenSecretsPresent(audit.present).message);
+      process.exit(3);
+    }
+  }
   const metrics = new Metrics();
   describeMetrics(metrics);
 
@@ -133,6 +148,7 @@ export async function main(): Promise<void> {
       log,
       version: VERSION,
       receivers: () => watcher.receivers(),
+      audit,
       daBudget: publicBucket,
       limits: config.httpLimits,
       ...(balanceWatch ? { balance: balanceWatch } : {}),

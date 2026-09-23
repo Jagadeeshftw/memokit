@@ -51,6 +51,22 @@ describe("elapsedByState", () => {
     expect(elapsed.failed).toBe(20);
   });
 
+  it("stops the clock at a final state, so a finished instruction is not shown as waiting", () => {
+    // The deployed service returned "executed: 33430" nine hours after an instruction
+    // finished. That is how long ago it ended, not a duration anything spent.
+    const elapsed = elapsedByState(
+      [at("seen", 0), at("attesting", 5), at("proved", 150), at("executed", 154)],
+      154_000 + 33_430_000,
+    );
+    expect(elapsed).toEqual({ seen: 5, attesting: 145, proved: 4 });
+    expect(elapsed).not.toHaveProperty("executed");
+  });
+
+  it("keeps counting a non-final state that is still in progress", () => {
+    const elapsed = elapsedByState([at("seen", 0), at("attesting", 5)], 100_000);
+    expect(elapsed).toEqual({ seen: 5, attesting: 95 });
+  });
+
   it("never reports negative time when a clock runs backwards", () => {
     const elapsed = elapsedByState([at("seen", 100)], 0);
     expect(elapsed.seen).toBe(0);

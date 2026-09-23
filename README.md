@@ -14,8 +14,9 @@ direct-minting limits. That coupling is the gap memokit fills. The account is de
 address alone, so there is nothing to register and no tag to buy.
 
 **An open executor** watches for these payments, pays for the attestation and submits the proof
-for the fee the instruction committed to — so the user needs no Flare key and no script.
-[executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running one.
+for the fee the instruction committed to — so the user needs no Flare key and no script. One is
+running at https://memokit-executor-production.up.railway.app;
+[executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running another.
 
 > **Latency is about two and a half minutes, and that is FDC's round cadence, not this code.**
 > XRPL payment to executed call took 152 s and 162 s in Phase 1, 118 s in Phase 2, 127 s in
@@ -312,7 +313,7 @@ What has run against live infrastructure, and what has not:
 | import from Flare Smart Accounts | live | — |
 | cash out to XRPL | live | live |
 | rescue classifier | live | — |
-| open executor service | live | — |
+| open executor service | live, deployed | — |
 | status API | live | — |
 | QR-signed instruction | live | — |
 | lending (Kinetic) | — | fork |
@@ -341,8 +342,9 @@ Limits, stated rather than left to be discovered:
   `execute` takes the preimage as an argument. Sign with `--inline` for anything a stranger's
   executor should be able to pick up.
 - **Racing is handled but has never been raced.** Every live run so far has had one executor.
-- **The Docker image is written but unbuilt here**, and nothing is deployed. See
-  [PHASE4.md](PHASE4.md).
+- **The deployed executor is one machine with one key.** It is at
+  https://memokit-executor-production.up.railway.app, funded for about 75 instructions at
+  Coston2's 650 gwei, and flags itself below eight.
 - **Xaman is untested against the live API**, for want of developer credentials. Without them the
   CLI still produces the unsigned transaction and its QR, which any XRPL wallet can sign.
 

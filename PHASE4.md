@@ -15,9 +15,10 @@ Everything here was run. The one thing that was not is labelled at the point of 
 5. [One end-to-end run](#5-one-end-to-end-run)
 6. [What surprised me](#6-what-surprised-me)
 7. [A scanner nobody reads is not a scanner](#7-a-scanner-nobody-reads-is-not-a-scanner)
-8. [Not done, and open](#8-not-done-and-open)
+8. [Deployed](#8-deployed)
+9. [Not done, and open](#9-not-done-and-open)
 
-Test counts at the end of Phase 4: **145** Solidity, **138** TypeScript in the SDK, **42** in the
+Test counts at the end of Phase 4: **145** Solidity, **138** TypeScript in the SDK, **63** in the
 executor, **24** fork tests.
 
 ---
@@ -252,15 +253,100 @@ CAUGHT  an aceternity api key
 
 The probe file was never committed and is not in the history.
 
-## 8. Not done, and open
+## 8. Deployed
 
-- **The Docker image is written but was not built here.** The local container runtime would not
-  start (`failed to run attach disk "colima", in use by instance "colima"`), and fixing somebody's
-  VM state is not part of this. Every path the Dockerfile copies was checked to exist, and the
-  `CMD` target `executor/dist/service/index.js` is produced by the build that does run. Treat the
-  image as unverified until it builds in CI or on Railway.
-- **Nothing is deployed.** No Railway project was created; `executor/DEPLOY.md` is the guide, not
-  a record.
+The executor runs on Railway at **https://memokit-executor-production.up.railway.app**, built
+from the repository's Dockerfile. That build is also the verification the local container
+runtime could not give: it built cleanly once a Railway-specific problem and a dependency
+problem were fixed, and a third problem surfaced at boot. All three are in
+[`executor/DEPLOY.md`](executor/DEPLOY.md#what-the-first-deploy-got-wrong).
+
+### Its own key, and nothing else
+
+The deployed service holds one secret: an EVM key generated for it and used by nothing else,
+`0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D`. Never the deployer key — an executor is a machine
+on the public internet and the deployer key is an admin key. It lives only in Railway's secret
+variables; it was never printed, never written into the repo, and `.env.example` has an empty
+named slot for it and nothing more.
+
+It was funded with **20 C2FLR** from the deployer address
+([`0xbfd0e72e…c74d`](https://coston2-explorer.flare.network/tx/0xbfd0e72ee182ae0bdbaf18e5ebba3a31898daeb78a7cf5adb39b0abf8442c74d)).
+The amount is sized from measured costs, and the measurement corrected an assumption: Coston2
+charges **650 gwei**, so one complete instruction is 0.25–0.28 C2FLR — not the 0.011 an EVM habit
+would guess. 20 C2FLR is about 75 instructions; the deployer keeps 22.2 for deployments.
+
+**It holds no XRPL seed and no deployer key, confirmed from the running process rather than from
+intent.** Railway's SSH needs a key registered on the account, which is not mine to add, so the
+service checks its own environment at boot instead and publishes the result:
+
+```json
+"secretAudit": { "clean": true, "checkedNames": 7, "unexpectedSecretsPresent": [] }
+```
+
+That is on `/healthz` for anyone to read, it reports names and never values, and the deployment
+runs with `REFUSE_IF_SECRETS_PRESENT=1`, so a seed added later would stop it booting rather than
+sit there. It only ever reads the XRP Ledger.
+
+### Public traffic cannot starve it
+
+Before deploying, the status routes shared more than a process with execution: a `/status`
+lookup spent the same DA Layer budget — about 20 requests a minute in total — that the executor
+needs to fetch proofs. Enough public traffic would have stopped execution while every health
+signal stayed green. That budget is now split three-to-one, and public lookups take their share
+without waiting. Around it: 30 requests a minute per caller with a burst of 10 and `Retry-After`,
+a global 300 a minute so a forged `x-forwarded-for` cannot multiply that, a concurrency cap of 10
+on `/status`, and five-second caching on `/instructions` and `/metrics`.
+
+Load-tested against a local instance with a real instruction in flight
+([`http-load-test.json`](fixtures/measurements/http-load-test.json)):
+
+| | |
+|---|---|
+| requests | 6,272,883 in 120 s — 52,274 a second, 20 concurrent |
+| served / refused | 69 / 6,272,814, every refusal a 429 with `Retry-After` |
+| socket errors | 0 |
+| **the instruction** | **executed normally: 132 s seen to executed, against a 159 s unloaded baseline** |
+| **the loop** | **15.4 s per tick against its 15 s target** |
+
+One request peaked at 6.5 s: a lookup already past the limiter, waiting on chain reads. The
+concurrency cap bounds it, and it delayed nobody but that caller.
+
+### Verified against the public URL
+
+| Check | Result |
+|---|---|
+| `/healthz`, `/metrics`, `/instructions`, `/status/{hash}` | all 200 |
+| CORS | `access-control-allow-origin: *`, on the 429 as well; `OPTIONS` answers 204 |
+| caching | `cache-control: public, max-age=5` on `/instructions` and `/metrics` |
+| rate limit | 45 requests over one connection: 15 served, 30 refused, `Retry-After: 2` |
+| balance | `lowBalance: false` at 19.72 C2FLR; the gauge is on `/metrics` |
+
+### One instruction, executed by the deployed service
+
+The owner signed and broadcast a QR-built payment. Nothing local was running. Everything after the
+signature was the service at the public URL, paying with its own key.
+
+| | |
+|---|---|
+| memo | `0xFD` inline, 523 bytes |
+| XRPL Payment | [`12EC49C9…6894`](https://testnet.xrpl.org/transactions/12EC49C99940F9F91F70FE1EA3996432890CEF2D183A6DEA86208F09FE3E6894) |
+| requestAttestation | [`0x8e122d18…c9ec`](https://coston2-explorer.flare.network/tx/0x8e122d188dc60d8742b99472293ae5c8566f270aeb952a92dc321e72be37c9ec) — from the deployed key, round 1463021 |
+| execute | [`0xb2868ed4…9f4c`](https://coston2-explorer.flare.network/tx/0xb2868ed477162780dcbae916ecff5c8f83da3fc616e6f9aa5a7e0f5dd5979f4c) — from the deployed key, 310,213 gas |
+| result | 0.3 FTestXRP transferred; 0.15 FTestXRP executor fee paid to the deployed key |
+| timing | **154 s**: 5 s to see it, 145 s attesting, 4 s from proof to executed |
+| trace | [`deployed-executor-run.json`](fixtures/measurements/deployed-executor-run.json) |
+
+Verified from the receipts rather than the service's own report: both transactions are `from`
+`0xD4dFA2b6…`, the execute carries two `Transfer` events (300,000 to the recipient, 150,000 to
+`msg.sender`), the transaction id reads consumed on the controller, the account's nonce went 3 → 4
+and its balance 7.8 → 7.35 FTestXRP, and the executor's own balance fell by 0.2556 C2FLR of gas.
+
+That response also exposed a bug worth fixing before a status page reads it: time in a *final*
+state kept counting, so the instruction reported `executed: 33430` nine hours later — how long ago
+it finished, rendered as if it were a wait. The clock now stops at a final state.
+
+## 9. Not done, and open
+
 - **Xaman is untested against the live API**, for want of credentials. The client is written
   against the documented payload endpoints and fails loudly rather than silently without them.
 - **The status page does not exist.** It belongs in the memokit-site repository, which this work
@@ -268,15 +354,16 @@ The probe file was never committed and is not in the history.
 - **One executor is not a market.** Racing is handled and counted, but it has never actually been
   raced — every live run so far has had exactly one executor, which is a fair description of the
   evidence, not of the design.
-- **No authentication and no rate limiting on the HTTP surface.** Everything it serves is public
-  information already on two public chains, but a public deployment should still put something in
-  front of it.
+- **No authentication on the HTTP surface.** Deliberate: everything it serves is already public
+  on two chains. It is rate limited, cached and concurrency-capped — see §8.
+- **Its state file is on one Railway volume.** Losing it costs attestation fees, never a duplicate
+  execution, because the chain is the real guard.
 
 ## Reproducing
 
 ```bash
 forge test              # 145 Solidity tests
-npm test                # 138 SDK + 42 executor tests
+npm test                # 138 SDK + 63 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi
 
 # live, needs .env (see .env.example):

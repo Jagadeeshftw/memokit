@@ -23,7 +23,8 @@
     "fast-check": "^3.23.1"
   },
   "dependencies": {
+    "@flarenetwork/flare-periphery-contracts": "0.1.53",
     "@openzeppelin/contracts": "5.5.0",
-    "@flarenetwork/flare-periphery-contracts": "0.1.53"
+    "ethers": "^6.13.4"
   }
 }

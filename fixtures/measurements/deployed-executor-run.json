@@ -1,0 +1,84 @@
+{
+  "note": "One QR-built instruction executed by the DEPLOYED executor on Railway, with no human input after the signature and no local process running. The owner signed and broadcast the XRPL payment; everything from there -- discovery, the attestation request, the wait, the simulation, the execute -- was the service at the public URL, paying with its own key.",
+  "capturedAt": "2026-09-22T18:34:30Z",
+  "service": {
+    "publicUrl": "https://memokit-executor-production.up.railway.app",
+    "platform": "Railway, built from the repository Dockerfile",
+    "executorAddress": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D",
+    "note": "a key generated for this deployment only, never the deployer's (0x8848d857...)"
+  },
+  "network": {
+    "flare": "coston2",
+    "xrpl": "testnet"
+  },
+  "controller": "0x0E762EAe8fe53e5247C22E5B52feD7A018150714",
+  "account": "0x9dD656e6FE2f9B46E57CE29265b3C66feCa2d741",
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "instruction": {
+    "memo": "0xFD inline, 523 bytes",
+    "transfer": {
+      "tokenAddress": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "to": "0x8848d8578756A1110161eEB32E868Be1415F2cD7",
+      "amount": "300000"
+    },
+    "executorFee": {
+      "tokenAddress": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "amount": "150000"
+    },
+    "nonce": "3"
+  },
+  "xrplPayment": "12EC49C99940F9F91F70FE1EA3996432890CEF2D183A6DEA86208F09FE3E6894",
+  "xrplLedger": 20967763,
+  "requestAttestation": "0x8e122d188dc60d8742b99472293ae5c8566f270aeb952a92dc321e72be37c9ec",
+  "votingRoundId": 1463021,
+  "execute": "0xb2868ed477162780dcbae916ecff5c8f83da3fc616e6f9aa5a7e0f5dd5979f4c",
+  "executeBlock": 35704489,
+  "gasUsed": {
+    "requestAttestation": "82947",
+    "execute": "310213"
+  },
+  "secondsInEachState": {
+    "seen": 5,
+    "attesting": 145,
+    "proved": 4,
+    "total": 154
+  },
+  "transitions": [
+    {
+      "state": "seen",
+      "at": 1790101917461
+    },
+    {
+      "state": "attesting",
+      "at": 1790101922956,
+      "note": "attestation requested in round 1463021"
+    },
+    {
+      "state": "proved",
+      "at": 1790102067612,
+      "note": "proof available"
+    },
+    {
+      "state": "executed",
+      "at": 1790102072032,
+      "note": "executed in block 35704489"
+    }
+  ],
+  "verifiedFromChain": {
+    "requestAttestationFrom": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D (the deployed key), to FdcHub 0x48aC463d...",
+    "executeFrom": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D (the deployed key), to the memokit diamond",
+    "transfersInReceipt": [
+      "0x9dd656e6... -> 0x8848d857... 300000  (the instruction)",
+      "0x9dd656e6... -> 0xd4dfa2b6... 150000  (the executor fee, to msg.sender)"
+    ],
+    "transactionIdConsumed": true,
+    "accountNonce": "3 -> 4",
+    "accountFxrp": "7800000 -> 7350000",
+    "executorBalanceC2FLR": "19.7240321 -> 19.4684781 (0.2555540 spent on gas)"
+  },
+  "explorer": {
+    "xrplIn": "https://testnet.xrpl.org/transactions/12EC49C99940F9F91F70FE1EA3996432890CEF2D183A6DEA86208F09FE3E6894",
+    "requestAttestation": "https://coston2-explorer.flare.network/tx/0x8e122d188dc60d8742b99472293ae5c8566f270aeb952a92dc321e72be37c9ec",
+    "execute": "https://coston2-explorer.flare.network/tx/0xb2868ed477162780dcbae916ecff5c8f83da3fc616e6f9aa5a7e0f5dd5979f4c"
+  }
+}
