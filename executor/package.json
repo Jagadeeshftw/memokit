@@ -22,7 +22,8 @@
     "service": "tsx src/service/index.ts",
     "status-api": "READ_ONLY=1 tsx src/service/index.ts",
     "sign": "tsx src/cli/sign.ts",
-    "smoke": "node --input-type=module -e \"await import('./dist/service/index.js'); console.log('module graph ok')\""
+    "smoke": "node --input-type=module -e \"await import('./dist/service/index.js'); console.log('module graph ok')\"",
+    "sign-with-seed": "tsx src/cli/signWithSeed.ts"
   },
   "dependencies": {
     "@memokit/sdk": "0.1.0",

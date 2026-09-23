@@ -18,8 +18,9 @@ export class XamanNotConfigured extends Error {
       `Xaman is not configured. Missing: ${missing.join(", ")}.\n` +
         `Create an application at https://apps.xaman.dev and put the credentials in .env:\n` +
         missing.map((m) => `  ${m}=...`).join("\n") +
-        `\n\nEverything except the Xaman push works without them: the unsigned transaction and ` +
-        `its QR are produced either way, and any XRPL wallet can sign them.`,
+        `\n\nWithout them the unsigned transaction is still saved, and ` +
+        `\`npm run sign-with-seed -w @memokit/executor -- <payload.json>\` can sign it. No wallet ` +
+        `reads the local QR's format, so scanning to sign needs Xaman.`,
     );
     this.name = "XamanNotConfigured";
   }

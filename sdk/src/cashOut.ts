@@ -97,6 +97,20 @@ export async function planCashOut(args: {
   };
 }
 
+/**
+ * How many whole lots can be redeemed while still leaving `fee` behind to pay the executor.
+ *
+ * The executor fee is paid AFTER the calls, out of what the redemption leaves in the account. A
+ * cash-out that redeems every lot the balance covers leaves only the dust, and if the dust is
+ * smaller than the fee the whole instruction reverts on chain -- after the user has paid for
+ * the XRPL carrier. So the lot count is decided with the fee already set aside.
+ */
+export function lotsLeavingFee(balance: bigint, lotSize: bigint, fee: bigint): bigint {
+  if (lotSize <= 0n) throw new Error(`lot size must be positive, got ${lotSize}`);
+  if (fee < 0n) throw new Error(`fee cannot be negative, got ${fee}`);
+  return balance > fee ? (balance - fee) / lotSize : 0n;
+}
+
 /** Exported so the safety rule can be tested directly; it is the part that loses money. */
 export function resolveDestination(
   xrplOwner: string,

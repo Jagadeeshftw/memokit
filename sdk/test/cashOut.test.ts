@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCashOutCalls, resolveDestination, type CashOutPlan } from "../src/cashOut.js";
+import { buildCashOutCalls, resolveDestination, lotsLeavingFee, type CashOutPlan } from "../src/cashOut.js";
 
 const AM = "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA";
 const OWNER = "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE";
@@ -107,3 +107,35 @@ describe("destination safety", () => {
     expect(() => resolveDestination(OWNER, stray)).toThrow(/iAcknowledgeThisSendsToSomeoneElse/);
   });
 });
+
+describe("lotsLeavingFee", () => {
+  const LOT = 10_000_000n;
+  const FEE = 100_000n;
+
+  it("leaves the fee behind, so the executor can still be paid after the redemption", () => {
+    // The dry run: 19.25 FXRP, a 10 FXRP lot, a 0.1 fee -> one lot, 9.25 left, 0.1 of it the fee.
+    expect(lotsLeavingFee(19_250_000n, LOT, FEE)).toBe(1n);
+  });
+
+  it("drops a lot rather than redeem one that would leave the fee unpaid", () => {
+    // Exactly two lots and nothing else: redeeming both would leave 0 for a 0.1 fee.
+    expect(lotsLeavingFee(20_000_000n, LOT, FEE)).toBe(1n);
+    expect(lotsLeavingFee(20_100_000n, LOT, FEE)).toBe(2n);
+  });
+
+  it("refuses when one lot plus the fee is more than the account holds", () => {
+    expect(lotsLeavingFee(10_000_000n, LOT, FEE)).toBe(0n);
+    expect(lotsLeavingFee(9_150_000n, LOT, FEE)).toBe(0n);
+    expect(lotsLeavingFee(FEE, LOT, FEE)).toBe(0n);
+  });
+
+  it("with no fee, is the plain whole-lot count", () => {
+    expect(lotsLeavingFee(29_999_999n, LOT, 0n)).toBe(2n);
+  });
+
+  it("rejects nonsense inputs instead of dividing by them", () => {
+    expect(() => lotsLeavingFee(1n, 0n, 0n)).toThrow(/lot size/);
+    expect(() => lotsLeavingFee(1n, LOT, -1n)).toThrow(/negative/);
+  });
+});
+
