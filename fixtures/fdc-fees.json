@@ -1,0 +1,46 @@
+{
+  "readAt": "2026-09-23",
+  "note": "FDC attestation request fees, read with FdcRequestFeeConfigurations.getRequestFee(bytes). The fee is keyed on (attestationType, sourceId) -- the first 64 bytes of the request -- so the rest of the request can be zeros. Gas figures are measured from real requestAttestation transactions.",
+  "networks": {
+    "flare": {
+      "block": 70425801,
+      "fdcHub": "0xc25c749DC27Efb1864Cb3DADa8845B7687eB2d44",
+      "fdcRequestFeeConfigurations": "0x259852Ae6d5085bDc0650D3887825f7b76F0c4fe",
+      "fees": {
+        "Payment/XRP": "20000000000000000000",
+        "XRPPayment/XRP": "20000000000000000000"
+      },
+      "feesNative": {
+        "Payment/XRP": "20 FLR",
+        "XRPPayment/XRP": "20 FLR"
+      },
+      "gasPriceGwei": 650,
+      "requestAttestationGasUsed": [
+        83256,
+        83127,
+        82779
+      ],
+      "requestAttestationGasCostNative": "~0.054 FLR"
+    },
+    "coston2": {
+      "block": 35725152,
+      "fdcHub": "0x48aC463d7975828989331F4De43341627b9c5f1D",
+      "fdcRequestFeeConfigurations": "0x191a1282Ac700edE65c5B0AaF313BAcC3eA7fC7e",
+      "fees": {
+        "Payment/testXRP": "1000",
+        "XRPPayment/testXRP": "1000"
+      },
+      "feesNative": {
+        "Payment/testXRP": "1000 wei",
+        "XRPPayment/testXRP": "1000 wei"
+      },
+      "gasPriceGwei": 650,
+      "requestAttestationGasUsed": [
+        82947,
+        83304
+      ],
+      "requestAttestationGasCostNative": "~0.054 C2FLR"
+    }
+  },
+  "history": "Phase 0 read the same 20 FLR mainnet fees from chain on 2026-09-20 (phase0-report.md, 'Addresses and fees'), without recording the block or a re-read command. This file is the re-read, with both."
+}

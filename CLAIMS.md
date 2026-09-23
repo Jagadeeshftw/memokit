@@ -137,6 +137,7 @@ the right-hand column or something no stronger.
 | `eth_getLogs` capped at 30 blocks on the public Coston2 RPC | **Live** | a 31-block range is refused with "maximum is set to 30", re-read 2026-09-23 |
 | A redeploy moves every account address | **Live** | `0x8F1eD3f5…` → `0x9dD656e6…` for the same XRPL owner; migration [`0x8f35ae17…`](https://coston2-explorer.flare.network/tx/0x8f35ae17ed4a341af871546362f1561ec80da1157876806b4e865c160fab0ead) |
 | Public Coston2 RPC prunes history | **Live** | historical `balanceOf` returns "missing trie node"; archive endpoints needed for anything older |
+| A mainnet attestation request costs 20 FLR plus ~0.054 FLR gas; Coston2's costs 1000 wei plus gas | **Live** (read-only) | `getRequestFee` on Flare block 70425801 and Coston2 block 35725152, both `Payment` and `XRPPayment`; [docs/fdc-fees.md](docs/fdc-fees.md). Phase 0 read the same value on 2026-09-20. |
 
 ## Addresses
 

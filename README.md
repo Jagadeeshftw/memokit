@@ -341,6 +341,8 @@ What has run against live infrastructure, and what has not:
 Limits, stated rather than left to be discovered:
 
 - **No mainnet deployment and no mainnet transaction.** Everything live is Coston2 and XRPL Testnet.
+  Mainnet attestation is not free the way testnet's is: a request costs 20 FLR plus about 0.054 FLR
+  of gas, against 1000 wei on Coston2 ([docs/fdc-fees.md](docs/fdc-fees.md)).
 - **Post-conditions are floors only.** An instruction that spends cannot assert its own purpose;
   a cash-out asserts what it left behind instead.
 - **A cash-out is not atomic.** `redeem` creates an obligation that an FAssets *agent*

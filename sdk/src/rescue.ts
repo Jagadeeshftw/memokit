@@ -82,7 +82,9 @@ export interface RescuePlan {
  *                    the moment the XRPL payment validates. Never recoverable, in any state,
  *                    including the successful one -- it is the postage.
  *   attestation fee  paid in FLR by whoever submitted the request. On Coston2 it is 1000 wei;
- *                    on mainnet 20 FLR. An unconfirmed request is BURNT, not refunded.
+ *                    on mainnet 20 FLR, plus about 0.054 FLR of gas at 650 gwei -- read from
+ *                    chain on 2026-09-23, see docs/fdc-fees.md for the block and how to re-read
+ *                    it. An unconfirmed request is BURNT, not refunded.
  *   the instruction  the calls never happen.
  *
  * The account's assets are never at risk in any stalled state: they have not moved.
