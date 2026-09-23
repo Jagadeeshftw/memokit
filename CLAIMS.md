@@ -25,7 +25,7 @@ audit found an error, the README has been corrected and the row says what change
 | **Open** | Not done, or not verified. | — |
 
 Test suites as of this audit: **145** Solidity (`forge test`), **24** fork (`npm run test:fork`),
-**147** SDK and **63** executor (`npm test`).
+**152** SDK and **63** executor (`npm test`).
 
 ## Easy to overstate
 
@@ -41,7 +41,7 @@ the right-hand column or something no stronger.
 | Rescue classifier | **Live, but unrecorded.** It ran against real history (7 payments), but no fixture was kept; the counts come from commit `6cf0978`. | "run against the deployment's real history" | citing it as a recorded trace |
 | No FAssets mint in the path | **Live, checked on two runs**: `totalSupply` identical across the execute block for the Phase 1 vault deposit and the Phase 2 payout. | "no mint in the path; totalSupply checked unchanged on live runs" | "verified on every run" |
 | Mainnet | **Open.** No mainnet deployment and no mainnet transaction. | "testnet" | anything implying mainnet |
-| Xaman signing | **Open.** Built, never run against the live Xaman API. | "unsigned transaction and QR, signable by any XRPL wallet" | "Xaman integration" as a working feature |
+| Xaman signing | **Open.** Built, never run against the live Xaman API. | "builds the unsigned transaction; Xaman signing is built but not yet live-tested" | "Xaman integration" as a working feature, or "any XRPL wallet can sign the QR" — no wallet reads its `xrpl:tx?json=` format *(this row used to recommend that wording; corrected 2026-09-23)* |
 | **Who an address belongs to** | **An inference, unless a contract or an official source names it.** The chain states what an address *did*, never who controls it. | "`0xcA0Bf4Cb…`, the FSA controller's main relayer — an EOA whose recent transactions all go to that controller" | "Flare's operator", "a third party", or any name the chain does not state |
 | Attestation reuse on the import path | **Live once** (import run 3), and one path of it — the fallback when a reused round produces no proof — has never run | "the import reuses an identical attestation already on chain instead of paying for another" | "memokit never pays for duplicate attestations": the executor service does not check yet (deferred, below) |
 
@@ -109,6 +109,7 @@ the right-hand column or something no stronger.
 | Funded for about 75 instructions; flags itself below eight | **Live** | funding tx [`0xbfd0e72e…`](https://coston2-explorer.flare.network/tx/0xbfd0e72ee182ae0bdbaf18e5ebba3a31898daeb78a7cf5adb39b0abf8442c74d), 20 C2FLR; measured cost 0.25–0.28 C2FLR per instruction |
 | Coston2 charges 650 gwei | **Live** | `eth_gasPrice`, and `effectiveGasPrice` on every Phase 4 receipt, re-read 2026-09-23 |
 | An executor cannot run a `0xFC` instruction without its preimage | **Tested** + **Live** | `execute(proof, data)` takes it as an argument; the Phase 4 service held ten commit-memo payments it could not run |
+| A cash-out built by `sign --cash-out`, executed by the deployed executor, paid out in XRP | **Live, once** | XRPL in [`4D9F2AD9…`](https://testnet.xrpl.org/transactions/4D9F2AD97010C8E4DC20FCC570EEAD797DF7E914D3E275CD0336CC1BEF5A58EF) → execute [`0x5da0d80a…`](https://coston2-explorer.flare.network/tx/0x5da0d80a47718e905daeb59c5cdf93b214b251bddbd1302d208404dd1e6caeae) from the deployed key → XRPL payout [`0ECB1546…`](https://testnet.xrpl.org/transactions/0ECB1546CA1820CD8DF056E23E77BBDCB5FE6A53980ECFAED59B44F34538821C), 9.948010 XRP, 16 min after the execute. **Signed by the `sign-with-seed` stand-in, not a wallet.** `demo-dry-run-cash-out.json`. |
 | Simulation before every submission | **Tested** | `executor/test/pipeline.test.ts` ("simulates before submitting, every time") |
 | The executor service avoids paying for duplicate attestations | **Open — deferred to mainnet work, deliberately.** | It reuses only a proof that has already *finalised*, which never happens for a payment it sees live, and it does not read `AttestationRequest` events. **Why deferred:** it saves nothing today — one executor, and in all seven live memokit runs nobody else requested the same attestation — and doing it properly means holding the request until late in the voting round, which risks adding a round (~90 s). **What deferring costs:** nothing on Coston2 (~0.054 C2FLR per duplicate); on mainnet, ~20.05 FLR per duplicate request, so up to (N−1) × 20 FLR per instruction once N executors watch the same address. Noted at the decision point in `executor/src/service/pipeline.ts`. |
 

@@ -249,7 +249,7 @@ git clone --recurse-submodules <repo-url>
 npm install
 forge build
 forge test              # 145 Solidity tests
-npm test                # 147 SDK + 63 executor tests
+npm test                # 152 SDK + 63 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi (fork profile only)
 ```
 
@@ -265,13 +265,16 @@ npm run cash-out -w @memokit/executor   # redeem FXRP, XRP back on XRPL
 npm run rescue   -w @memokit/executor   # classify every payment an owner sent
 ```
 
-Run an executor, or just the status API. See [executor/DEPLOY.md](executor/DEPLOY.md).
+Run an executor, or just the status API. See [executor/DEPLOY.md](executor/DEPLOY.md). For a
+step-by-step demo of a cash-out through the deployed executor, see
+[docs/DEMO-RUNBOOK.md](docs/DEMO-RUNBOOK.md).
 
 ```bash
 MIN_FEE=0x0b6A3645c240605887a5532109323A3E12273dc7:100000 \
   npm run service    -w @memokit/executor   # watch, attest, simulate, execute, get paid
 READ_ONLY=1 npm run status-api -w @memokit/executor   # the API alone: no key, nothing signed
 npm run sign -w @memokit/executor -- --inline --to 0x... --amount 500000 --fee 200000
+npm run sign -w @memokit/executor -- --owner r... --cash-out     # redeem FXRP to XRP, for the executor
 ```
 
 Measurements and checks against live infrastructure:
@@ -373,7 +376,9 @@ Limits, stated rather than left to be discovered:
   https://memokit-executor-production.up.railway.app, funded for about 75 instructions at
   Coston2's 650 gwei, and flags itself below eight.
 - **Xaman is untested against the live API**, for want of developer credentials. Without them the
-  CLI still produces the unsigned transaction and its QR, which any XRPL wallet can sign.
+  CLI still saves the unsigned transaction, but no wallet reads its local QR's `xrpl:tx?json=`
+  format, and an inline cash-out is too large for a QR a phone can reliably scan. Scanning to sign
+  needs Xaman.
 
 See [PHASE1.md](PHASE1.md), [PHASE2.md](PHASE2.md), [PHASE3.md](PHASE3.md) and
 [PHASE4.md](PHASE4.md) for what is built, measured and still open. [phase0-report.md](phase0-report.md) has the investigation this is based

@@ -1,0 +1,66 @@
+{
+  "note": "Demo-runbook dry run, 2026-09-23: a cash-out built by `npm run sign -- --cash-out`, signed by the `sign-with-seed` stand-in (not a wallet, not Xaman), executed by the deployed executor with nothing local running, and paid out in XRP by an FAssets agent. Every value re-read from chain.",
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "account": "0x9dD656e6FE2f9B46E57CE29265b3C66feCa2d741",
+  "controller": "0x0E762EAe8fe53e5247C22E5B52feD7A018150714",
+  "funding": {
+    "how": "ASSET_MANAGER=0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA npm run fund -w @memokit/executor",
+    "reserveCollateral": "0xc9e6cb1b87e4695a650cd98e3a001b297bb0990520b4637dd3987421038c708f",
+    "xrplMintPayment": "023DAB3467468C72752419E74DD44217D93B78A8F1E43DC7EF450557EDF0B5D8",
+    "executeMinting": "0x2462093cb1b9899220a10650a745724879bc6a87069a9864dbd3215d255b4e54",
+    "transferToAccount": "0x148cfb6c7e830073cd7916d18da5d696eb859358f17d4ce228a5fb50a306d078",
+    "accountFxrp": "7.85 -> 19.25 (one minted lot plus the deployer's leftover 1.4)",
+    "deployerC2flrSpent": "2.98",
+    "seconds": 136
+  },
+  "instruction": {
+    "memo": "0xFD inline, 875 bytes",
+    "redeem": "1 lot = 10.0 FXRP to the payer's own XRPL address",
+    "executorFee": "100000 (0.1 FTestXRP)",
+    "postCondition": "Erc20BalanceAtLeast(FXRP, account, 9.25 FXRP): the dust survives",
+    "nonce": 4
+  },
+  "xrplPaymentIn": "4D9F2AD97010C8E4DC20FCC570EEAD797DF7E914D3E275CD0336CC1BEF5A58EF",
+  "xrplLedgerIn": 20991018,
+  "requestAttestation": "0x69974eb48edfa9f9ce922d83f8fcf66c6a26c7fc016a8ab355295a694c1d0009",
+  "votingRoundId": 1463907,
+  "execute": "0x5da0d80a47718e905daeb59c5cdf93b214b251bddbd1302d208404dd1e6caeae",
+  "executeBlock": 35745285,
+  "executedBy": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D (the deployed executor)",
+  "executeGasUsed": 681383,
+  "secondsInEachState": {
+    "seen": 6,
+    "attesting": 89,
+    "proved": 15
+  },
+  "tokenMovementsInExecute": [
+    "burn 10.0 FTestXRP from the account",
+    "mint 0.002 FTestXRP to the agent's pool 0x6E815bB9... (FAssets' own fee, not memokit's)",
+    "transfer 0.1 FTestXRP from the account to the executor (its fee)"
+  ],
+  "totalSupply": {
+    "blockBefore": "11221231169768",
+    "executeBlock": "11221221171768",
+    "change": "-9998000 (10.0 burned, 0.002 minted)"
+  },
+  "accountFxrpAfter": "9.15",
+  "redemption": {
+    "requestId": "53700678",
+    "agentVault": "0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC",
+    "deadline": {
+      "xrplLedger": 20991507,
+      "timestamp": "2026-09-23T16:55:49Z"
+    },
+    "xrplPayout": "0ECB1546CA1820CD8DF056E23E77BBDCB5FE6A53980ECFAED59B44F34538821C",
+    "payoutFrom": "r4uKJRy9mjxGHw1yzS1SrtaKCUwT66MCcP (the agent's payment address)",
+    "payoutLedger": 20991337,
+    "payoutClosed": "2026-09-23T16:59:41Z",
+    "delivered": "9.948010 XRP",
+    "minutesAfterExecute": 16,
+    "onTime": "yes: an agent is late only once BOTH deadlines pass; this paid after the timestamp but 170 ledgers before the ledger deadline"
+  },
+  "costs": {
+    "executorC2flr": "0.4968 (attestation fee + request gas + execute gas)",
+    "ownerXrpNet": "about -1.08 XRP across funding and cash-out: 10.025 paid to mint, 1.000012 carrier, 9.948010 back"
+  }
+}
