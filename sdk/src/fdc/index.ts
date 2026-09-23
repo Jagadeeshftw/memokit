@@ -4,3 +4,4 @@ export * from "./buildResponse.js";
 export * from "./encode.js";
 export * from "./daLayer.js";
 export * from "./rounds.js";
+export * from "./requestLog.js";

@@ -2,15 +2,18 @@
  * Move FXRP from a Flare Smart Accounts personal account into the memokit account owned by
  * the same XRPL address, using Flare's own rail.
  *
- * One XRPL payment to Flare's provider wallet, carrying a 32-byte FSA payment reference that
- * names the memokit account as the recipient. FSA's `executeInstruction` does the transfer.
- * memokit relays the proof itself rather than waiting for Flare's operator, because
- * `executeInstruction` has no access control -- see `sdk/src/fsaImport.ts` for the full
+ * One XRPL payment to the FSA controller's provider wallet, carrying a 32-byte FSA payment
+ * reference that names the memokit account as the recipient. FSA's `executeInstruction` does
+ * the transfer. memokit relays the proof itself rather than waiting for another relayer,
+ * because `executeInstruction` has no access control -- see `sdk/src/fsaImport.ts` for the full
  * verification.
+ *
+ * Before paying for an attestation it checks whether an identical request is already on chain,
+ * and reuses that one's voting round if so. In both live imports one was: see `requestOrReuse`.
  *
  * Run: npm run import-fsa -w @memokit/executor -- --drops 5000000
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { Contract, JsonRpcProvider, Wallet as EvmWallet, AbiCoder, formatUnits } from "ethers";
 import { Wallet as XrplWallet } from "xrpl";
@@ -18,14 +21,31 @@ import {
   COSTON2,
   prepareImport,
   decodeImportReference,
+  fetchXrplTransaction,
   FSA_CONTROLLER,
 } from "@memokit/sdk";
 import { sendMemoPayment } from "@memokit/sdk/xrpl";
-import { DaLayerClient, RoundClock } from "@memokit/sdk/fdc";
+import {
+  DaLayerClient,
+  RoundClock,
+  RIPPLE_EPOCH_OFFSET,
+  findIdenticalRequest,
+  providerRequestLog,
+  type DaProofResponse,
+} from "@memokit/sdk/fdc";
 import { VERIFIER } from "./config.js";
 
 const REPO = resolve(import.meta.dirname, "../..");
-const OUT = resolve(REPO, "fixtures/measurements/fsa-import-trace.json");
+/**
+ * Where the trace goes. Never an existing file: run 1's own record was lost because this was
+ * once a fixed path and run 2 wrote over it, and it had to be rebuilt from the chain.
+ */
+const OUT = resolve(
+  REPO,
+  process.argv.includes("--out")
+    ? process.argv[process.argv.indexOf("--out") + 1]
+    : `fixtures/measurements/fsa-import-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+);
 const coder = AbiCoder.defaultAbiCoder();
 
 /** The classic `Payment` attestation, which is what FSA's proof flow takes. */
@@ -157,33 +177,34 @@ async function main() {
     provider,
   ).getRequestFee(abiEncodedRequest);
 
-  const hub = new Contract(hubAddress, ["function requestAttestation(bytes) payable"], evm);
-  const reqReceipt = await (await hub.requestAttestation(abiEncodedRequest, { value: fee })).wait();
-  mark("fdc:request-submitted");
-  console.log(`  requestAttestation ${reqReceipt.hash}`);
-
-  const votingRoundId = await new RoundClock(provider, relayAddress, COSTON2.daLayerUrl)
-    .roundIdOfBlock(reqReceipt.blockNumber);
-  console.log(`  voting round ${votingRoundId}, waiting for the proof...`);
-
+  const ledgerTx = await fetchXrplTransaction(sent.hash, COSTON2);
+  const xrplClosedAt = Number(ledgerTx.date) + RIPPLE_EPOCH_OFFSET;
+  const clock = new RoundClock(provider, relayAddress, COSTON2.daLayerUrl);
   const da = new DaLayerClient(COSTON2.daLayerUrl);
-  const proofResponse = await da.waitForProof(
-    votingRoundId,
+
+  const attestation = await requestOrReuse({
+    provider,
+    evm,
+    hubAddress,
     abiEncodedRequest,
-    Date.now() + 15 * 60_000,
-    10_000,
-  );
+    fee,
+    xrplClosedAt,
+    clock,
+    da,
+  });
+  const { votingRoundId, proofResponse } = attestation;
   mark("fdc:proof-available");
 
-  // `executeInstruction` has no access control, so we can relay it ourselves -- but Flare's
-  // own operator watches the provider wallet and relays for ANY sender, so it usually gets
-  // there first. Losing that race is a success, not a failure: the instruction executed.
+  // `executeInstruction` has no access control, so we can relay it ourselves -- and so can
+  // anyone else. In the first live import another address relayed it before we did. Losing
+  // that race is a success, not a failure: the instruction executed.
   const [decoded] = coder.decode([PAYMENT_RESPONSE_ABI], proofResponse.response_hex);
   const fsa = new Contract(FSA_CONTROLLER, FSA_EXECUTE_ABI, evm);
 
   let execHash: string;
   let execBlock: number;
   let relayedByUs: boolean;
+  let relayedBy: string;
   try {
     const receipt = await (
       await fsa.executeInstruction([Array.from(proofResponse.proof), plain(decoded)], owner.address)
@@ -191,6 +212,7 @@ async function main() {
     execHash = receipt.hash;
     execBlock = receipt.blockNumber;
     relayedByUs = true;
+    relayedBy = evm.address;
     console.log(`  FSA executeInstruction ${execHash} in block ${execBlock} (relayed by us)`);
   } catch (e) {
     // 0xdb5e659b == TransactionAlreadyExecuted()
@@ -199,7 +221,10 @@ async function main() {
     const found = await findFsaExecution(provider, plan.accounts.fsa, plan.accounts.memokit, amountDrops);
     execHash = found.hash;
     execBlock = found.blockNumber;
-    console.log(`  Flare's operator relayed it first: ${execHash} in block ${execBlock}`);
+    // Read who sent it rather than assuming. Nothing on chain names that address; the trace
+    // records it as an address, not as an identity.
+    relayedBy = (await provider.getTransaction(execHash))?.from ?? "unknown";
+    console.log(`  another address relayed it first: ${execHash} in block ${execBlock}, from ${relayedBy}`);
   }
   mark("fsa:executed");
 
@@ -222,6 +247,7 @@ async function main() {
   legs.total = Math.round((marks[marks.length - 1].at - marks[0].at) / 1000);
 
   mkdirSync(dirname(OUT), { recursive: true });
+  if (existsSync(OUT)) throw new Error(`${OUT} already exists; pass --out with a new path`);
   writeFileSync(
     OUT,
     JSON.stringify(
@@ -240,12 +266,18 @@ async function main() {
         instructionFeeDrops: plan.minCarrierDrops.toString(),
         xrplTransactionHash: sent.hash,
         xrplLedgerIndex: sent.ledgerIndex,
-        requestAttestationTx: reqReceipt.hash,
+        requestAttestationTx: attestation.ourRequestTx,
+        attestation: {
+          paidByUs: attestation.paidByUs,
+          reusedRequest: attestation.reused,
+          searchedBlocks: attestation.searched,
+          fallbackReason: attestation.fallbackReason,
+        },
         votingRoundId,
         fsaExecuteTx: execHash,
         fsaExecuteBlock: execBlock,
-        relayedBy: relayedByUs ? evm.address : "flare-operator",
-        relayedByFlareOperator: !relayedByUs,
+        relayedBy,
+        relayedByUs,
         balances: {
           fsaBefore: before.fsa.toString(),
           fsaAfter: after.fsa.toString(),
@@ -273,7 +305,105 @@ main().catch((e) => {
 });
 
 /**
- * Find the transfer Flare's operator produced, when it beat us to the relay.
+ * Pay for the attestation, unless an identical request is already on chain.
+ *
+ * The request bytes are a pure function of the XRPL payment, so an identical request in
+ * FdcHub's logs is the same attestation. Reusing it means waiting for the proof of *its* voting
+ * round instead of paying 20 FLR (on mainnet) for a second copy.
+ *
+ * ASSUMPTION, stated here because this is where it is relied on: a proof for an identical
+ * request is served for the round the FIRST copy landed in, whoever requested it. The DA Layer
+ * looks proofs up by (round, request bytes) and never by requester, so this holds by
+ * construction if the round attested it at all. It was also checked, not just reasoned: both
+ * live imports, plus 24 randomly sampled duplicated requests from 20,000 blocks of Coston2
+ * history on 2026-09-23 -- 10 with every copy in one round, 14 spread across rounds -- and in
+ * all 26 the first copy's round served the proof.
+ *
+ * What that sample cannot rule out is a first copy whose round attested nothing -- a request
+ * made before the verifiers had seen the payment, say. So a reused round gets a deadline, and
+ * if no proof appears by then, this pays for its own request after all. Worst case, the reuse
+ * costs one wait instead of saving a fee.
+ */
+async function requestOrReuse(args: {
+  provider: JsonRpcProvider;
+  evm: EvmWallet;
+  hubAddress: string;
+  abiEncodedRequest: string;
+  fee: bigint;
+  xrplClosedAt: number;
+  clock: RoundClock;
+  da: DaLayerClient;
+}): Promise<{
+  paidByUs: boolean;
+  ourRequestTx: string | null;
+  reused: { txHash: string; blockNumber: number; from: string; votingRoundId: number } | null;
+  searched: { fromBlock: number; toBlock: number };
+  fallbackReason: string | null;
+  votingRoundId: number;
+  proofResponse: DaProofResponse;
+}> {
+  const { found, searched } = await findIdenticalRequest({
+    source: providerRequestLog(args.provider, args.hubAddress),
+    abiEncodedRequest: args.abiEncodedRequest,
+    sinceUnixSeconds: args.xrplClosedAt,
+  });
+
+  // Loud either way. This path almost never triggers on testnet -- the fee there is 1000 wei --
+  // and code that only runs silently is code nobody notices has stopped working.
+  let fallbackReason: string | null = null;
+  let reused: { txHash: string; blockNumber: number; from: string; votingRoundId: number } | null = null;
+  if (found) {
+    const from = (await args.provider.getTransaction(found.txHash))?.from ?? "unknown";
+    const votingRoundId = await args.clock.roundIdOfBlock(found.blockNumber);
+    reused = { txHash: found.txHash, blockNumber: found.blockNumber, from, votingRoundId };
+    mark("fdc:request-reused");
+    console.log(
+      `  ATTESTATION REUSE: an identical request is already on chain -- ${found.txHash} ` +
+        `in block ${found.blockNumber}, from ${from}, voting round ${votingRoundId}. ` +
+        `Not paying the ${args.fee} wei fee; waiting for that round's proof.`,
+    );
+    const requestedAt = (await args.provider.getBlock(found.blockNumber))!.timestamp;
+    try {
+      // Six minutes from the other request: four rounds, well past the 90-180 s it normally
+      // takes a round to finalise and reach the DA Layer.
+      const proofResponse = await args.da.waitForProof(
+        votingRoundId,
+        args.abiEncodedRequest,
+        (requestedAt + 360) * 1000,
+        10_000,
+      );
+      console.log(`  ATTESTATION REUSE: proof served for round ${votingRoundId}; no fee paid.`);
+      return { paidByUs: false, ourRequestTx: null, reused, searched, fallbackReason, votingRoundId, proofResponse };
+    } catch (e) {
+      fallbackReason =
+        `round ${votingRoundId} of the reused request produced no proof by ` +
+        `${new Date((requestedAt + 360) * 1000).toISOString()}: ${(e as Error).message}`;
+      console.log(`  ATTESTATION REUSE FAILED: ${fallbackReason}. Requesting our own.`);
+    }
+  } else {
+    console.log(
+      `  NO ATTESTATION REUSE: no identical request on chain in blocks ` +
+        `${searched.fromBlock}-${searched.toBlock} since the XRPL close. Paying ${args.fee} wei.`,
+    );
+  }
+
+  const hub = new Contract(args.hubAddress, ["function requestAttestation(bytes) payable"], args.evm);
+  const receipt = await (await hub.requestAttestation(args.abiEncodedRequest, { value: args.fee })).wait();
+  mark("fdc:request-submitted");
+  console.log(`  requestAttestation ${receipt.hash}`);
+  const votingRoundId = await args.clock.roundIdOfBlock(receipt.blockNumber);
+  console.log(`  voting round ${votingRoundId}, waiting for the proof...`);
+  const proofResponse = await args.da.waitForProof(
+    votingRoundId,
+    args.abiEncodedRequest,
+    Date.now() + 15 * 60_000,
+    10_000,
+  );
+  return { paidByUs: true, ourRequestTx: receipt.hash, reused, searched, fallbackReason, votingRoundId, proofResponse };
+}
+
+/**
+ * Find the transfer another relayer produced, when it beat us to the relay.
  *
  * Matched on the transfer itself -- FSA account to memokit account, exact amount -- rather
  * than on an event signature, because what matters for the trace is that the funds moved,

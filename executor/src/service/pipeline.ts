@@ -216,6 +216,21 @@ async function triage(instruction: TrackedInstruction, deps: PipelineDeps, log: 
     return;
   }
 
+  // DEFERRED, deliberately: checking FdcHub's AttestationRequest events for an identical request
+  // before paying here, the way `executor/src/importFromFsa.ts` now does.
+  //
+  // Why not yet. It saves nothing today. There is one memokit executor, and in all seven live
+  // memokit runs nobody else ever requested the same attestation, so there has been nothing to
+  // reuse. And to work here it has to wait: this runs within ~15 s of the payment appearing,
+  // usually before any other executor has requested, so it would have to hold its own request
+  // until late in the voting round and check then. Misjudge the round boundary and the request
+  // slips a round -- about 90 s added to an instruction that already takes ~150 s.
+  //
+  // What deferring costs. On Coston2, ~0.054 C2FLR per duplicate: nothing. On mainnet, once more
+  // than one executor watches the same receiving address, every executor that requests pays
+  // ~20.05 FLR for the same proof (docs/fdc-fees.md) -- up to (N-1) x 20 FLR wasted per
+  // instruction with N executors. Do this before mainnet. `findIdenticalRequest` in
+  // `sdk/src/fdc/requestLog.ts` is the check; what remains is the round-timing decision.
   const request = await deps.chain.requestAttestation(instruction.xrplHash);
   deps.metrics.inc("memokit_executor_attestations_requested_total");
   deps.store.update(

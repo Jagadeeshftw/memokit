@@ -1,0 +1,59 @@
+{
+  "note": "Import from Flare Smart Accounts into memokit, via FSA payment-reference instruction 0x01. Live on Coston2 + XRPL Testnet.",
+  "capturedAt": "2026-09-23T07:56:53.821Z",
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "fsaController": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
+  "fsaAccount": "0xA7F3A5EeD4694F849A803dd9DE2b9a0A29ef30f3",
+  "memokitController": "0x0E762EAe8fe53e5247C22E5B52feD7A018150714",
+  "memokitAccount": "0x9dD656e6FE2f9B46E57CE29265b3C66feCa2d741",
+  "fsaReceivingAddress": "rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq",
+  "paymentReference": "0x01000000000000000007a1209dd656e6fe2f9b46e57ce29265b3c66feca2d741",
+  "referenceDecoded": {
+    "instructionId": 1,
+    "walletId": 0,
+    "amountDrops": "500000",
+    "recipient": "0x9dD656e6FE2f9B46E57CE29265b3C66feCa2d741"
+  },
+  "carrierDrops": "1000000",
+  "instructionFeeDrops": "1000",
+  "xrplTransactionHash": "5B8049580FB50D4F8DF4E8849730A46E982FC1FBBFE9007F19C529403832AF02",
+  "xrplLedgerIndex": 20982043,
+  "requestAttestationTx": null,
+  "attestation": {
+    "paidByUs": false,
+    "reusedRequest": {
+      "txHash": "0x1953b81ce8edf9b1017d00b8b12524698f16298cd451be324682c4ef824785af",
+      "blockNumber": 35728808,
+      "from": "0x096103b7541bc4Ad716ABE6CfCddA728819f4b2f",
+      "votingRoundId": 1463556
+    },
+    "searchedBlocks": {
+      "fromBlock": 35728801,
+      "toBlock": 35728812
+    },
+    "fallbackReason": null
+  },
+  "votingRoundId": 1463556,
+  "fsaExecuteTx": "0x488f0935be2cb1270a9b333fd95c6ba237f888c6791778b899c58a0f8a7a6bc6",
+  "fsaExecuteBlock": 35728884,
+  "relayedBy": "0xcA0Bf4Cbc1Cf8c4b5FD7984b42AF907099084466",
+  "relayedByUs": false,
+  "balances": {
+    "fsaBefore": "1000000",
+    "fsaAfter": "500000",
+    "memokitBefore": "7350000",
+    "memokitAfter": "7850000",
+    "decimals": 6
+  },
+  "latencySeconds": {
+    "xrpl:submit -> xrpl:validated": 10,
+    "xrpl:validated -> fdc:proof-available (via reuse)": 110,
+    "fdc:proof-available -> fsa:executed": 3,
+    "total": 124
+  },
+  "explorer": {
+    "fsaExecute": "https://coston2-explorer.flare.network/tx/0x488f0935be2cb1270a9b333fd95c6ba237f888c6791778b899c58a0f8a7a6bc6",
+    "xrpl": "https://testnet.xrpl.org/transactions/5B8049580FB50D4F8DF4E8849730A46E982FC1FBBFE9007F19C529403832AF02"
+  },
+  "latencyNote": "As written, this trace split the reuse into 'validated -> request-reused' (110 s) and 'request-reused -> proof-available' (0 s): the reuse mark was taken after the proof arrived, not when the reuse was decided. The two are merged here into the one real measurement. The script now marks the decision when it is made."
+}
