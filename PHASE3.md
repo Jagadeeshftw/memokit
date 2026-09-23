@@ -207,11 +207,22 @@ Both halves are on chain, which is better evidence than either alone:
 | 1 | 5.0 FTestXRP | Flare's operator `0xcA0Bf4Cb…` | [`0x7faeb3ec…7d84`](https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84) |
 | 2 | 4.0 FTestXRP | us | [`0xe7f4ac74…106b`](https://coston2-explorer.flare.network/tx/0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b) |
 
-FSA account 10.0 → 1.0, memokit account 10.1 → 19.1, both verified from receipts rather than
-script read-back. Run 1 is the more interesting one: our own relay lost the race and reverted
-`TransactionAlreadyExecuted`. Losing that race is treated as success, because it is — the
-instruction executed. The script detects it, finds the transfer Flare's operator produced, and
-records who relayed it. End to end, run 2 took 162 s.
+FSA account 10.0 → 5.0 → 1.0, memokit account 10.1 → 15.1 → 19.1, read from archive state at each
+execute block rather than from script read-back. Run 1 is the more interesting one: our own relay
+lost the race. It was refused with `TransactionAlreadyExecuted` in simulation and never broadcast —
+there is no transaction from us to the FSA controller in the blocks around it — so it cost no gas.
+Losing that race is treated as success, because it is: the instruction executed. The script detects
+it, finds the transfer Flare's operator produced, and records who relayed it. End to end, run 2
+took 162 s; run 1 took 173 s from XRPL ledger close to Flare's operator delivering it.
+
+One more thing the chain shows, found when run 1 was re-read on 2026-09-23. **In both runs, an
+attestation for the same XRPL payment was requested by `0x096103b7…` three to four blocks before
+ours.** Our request was redundant both times: it cost the fee and about 83,000 gas and bought
+nothing. On the FSA import path, somebody on Flare's side is already paying for the attestation.
+
+Run 1's trace was reconstructed from the chain on 2026-09-23, because the script's own record of it
+was overwritten by run 2: [`fsa-import-run1-trace.json`](fixtures/measurements/fsa-import-run1-trace.json).
+Run 2's is [`fsa-import-trace.json`](fixtures/measurements/fsa-import-trace.json).
 
 `deriveBothAccounts` reads each account from its own controller rather than reproducing FSA's
 frozen creation-code constant, because a second copy of that derivation could silently disagree
@@ -234,9 +245,22 @@ holds an EVM key.**
 | XRPL Payment in | [`A92E0E7C…3E47`](https://testnet.xrpl.org/transactions/A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47) |
 | execute | [`0x4527b740…5022`](https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022) |
 | XRPL payout | [`F7858109…9ECD`](https://testnet.xrpl.org/transactions/F7858109B0AD251D1BB44227AAB73E10F4651587FA30022278AA497A485E9ECD) |
-| result | 19.1 → 9.1 FXRP; 9.948010 XRP delivered on XRPL |
-| latency | **321 s** total: 100 s attestation, 7 s execute, 193 s for the agent to pay |
+| result | one 10.0 FXRP lot burned (account 19.1 → 9.1); 9.948010 XRP delivered on XRPL |
+| latency | **148 s** from XRPL submit to XRP delivered on XRPL: 127 s to the execute (100 s of it attestation), then the agent paid 21 s later |
+| Flare confirms the payout | 297 s after submit, block 35694411 — a separate measurement, see below |
 | trace | [`cash-out-trace.json`](fixtures/measurements/cash-out-trace.json) |
+
+Three clocks run through this, and an earlier version of this section conflated them:
+
+- **148 s** — XRPL submit to XRP arriving on XRPL. What the user waits.
+- **297 s** — XRPL submit to Flare *confirming* the payout. The agent can only confirm after proving
+  its own XRPL payment through FDC, which is another voting round after the XRP has arrived.
+- **321 s** — when the redemption tracker, polling every 15 s, *noticed* that confirmation. A
+  property of the tracker, not of the protocol.
+
+This page originally reported 321 s as the time "until the XRP landed", with "193 s for the agent to
+pay". Both were wrong: the agent paid 21 s after `redeem`. The chain timestamps behind each figure
+are in the trace's `timingCorrection`.
 
 Verified independently of the script's own read-back: the payout's XRPL memo is byte-identical to
 `paymentReference` in the Flare `RedemptionRequested` event
@@ -293,11 +317,14 @@ tells callers to quote `valueUBA - feeUBA` from the event rather than predict it
 
 ### Why there is a fork test as well
 
-The first live attempt **failed**: Coston2's redemption queue was empty, and `redeem(1)` reverted
-`RedeemZeroLots()` after every one of memokit's own checks had passed. That is an inventory
-failure, not a code failure, and inventory changes — a day later the queue had refilled and the
-same instruction went through. It was five tickets deep minutes before the trace and one ticket
-deep minutes after. Both readings are in
+The first attempt **failed**, but not the way this page first described it. It was a *simulated*
+`redeem(1)` sent directly from the account, not a live cash-out through memokit, so none of
+memokit's own checks were in the path. It reverted `RedeemZeroLots()` because Coston2's
+redemption queue was empty at that block (35645314) — confirmed from archive state, where replaying
+the same call at that block reproduces the revert. A 30 FXRP ticket appeared about three minutes
+later and was drained again within ten. That is an inventory failure, not a code failure. A day
+later the same instruction ran live; the queue was five tickets deep minutes before that trace and
+one ticket deep minutes after. Both readings are in
 [`coston2-redemption-capacity.json`](fixtures/measurements/coston2-redemption-capacity.json).
 
 `test/fork/CashOutFork.t.sol` exercises the same instruction against the real AssetManager on a
@@ -352,7 +379,9 @@ schedule. Any test that depends on it is flaky by construction.
   whose agent never pays; that is executor-service work.
 - **The public DA Layer allows about 20 requests a minute.** A self-hosted one is still the obvious
   next step.
-- **The 193 s the agent took is not ours to improve**, and not bounded by anything memokit controls.
+- **The agent's time to pay is not ours to improve**, and not bounded by anything memokit controls.
+  It was 21 s in the one live run; Flare confirmed the payout 149 s after that, on the agent's own
+  FDC proof.
 
 ## Reproducing
 

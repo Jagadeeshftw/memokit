@@ -193,7 +193,7 @@ One instruction, from a QR to a Flare transaction, with no human input after the
 | requestAttestation | [`0x4ba4816f…2865`](https://coston2-explorer.flare.network/tx/0x4ba4816fc4b511a93c0b52115d56034e939bf9d0aba224f41c3419ba17ca2865) — by the service, round 1462823, 1000 wei |
 | execute | [`0x1eefa273…60b4`](https://coston2-explorer.flare.network/tx/0x1eefa273d1a19fae0db851edcf964fce390edc08cb2f5a2a4de3485b2bd360b4) — by the service, 293,129 gas |
 | result | 0.5 FTestXRP transferred, 0.2 FTestXRP executor fee paid out of the same balance |
-| timing | **159 s**: 16 s to see it, 138 s attesting, 5 s from proof to submitted |
+| timing | **167 s** from XRPL ledger close. From the service seeing it: 159 s — 16 s before paying for the attestation, 138 s attesting, 5 s from proof to executed |
 | trace | [`executor-service-run.json`](fixtures/measurements/executor-service-run.json) |
 
 Verified from the receipt and chain state rather than the service's own logs: two `Transfer`
@@ -207,7 +207,9 @@ Xaman was not in this run: the credentials are the operator's to create, and the
 JSON is what its payload API takes. Everything else — discovery, the attestation, the wait, the
 simulation, the submission — was the service, unattended.
 
-87% of the 159 s is the FDC voting round. Nothing in this phase changes that, and nothing can.
+Most of the 138 s attesting is the FDC voting round, but not all of it: the service checks the DA
+Layer every 30 s, so up to 30 s of it is the service's own polling. That part is a choice this
+phase made, to stay inside the DA Layer's rate limit; the voting round is not.
 
 ## 6. What surprised me
 
@@ -333,7 +335,7 @@ signature was the service at the public URL, paying with its own key.
 | requestAttestation | [`0x8e122d18…c9ec`](https://coston2-explorer.flare.network/tx/0x8e122d188dc60d8742b99472293ae5c8566f270aeb952a92dc321e72be37c9ec) — from the deployed key, round 1463021 |
 | execute | [`0xb2868ed4…9f4c`](https://coston2-explorer.flare.network/tx/0xb2868ed477162780dcbae916ecff5c8f83da3fc616e6f9aa5a7e0f5dd5979f4c) — from the deployed key, 310,213 gas |
 | result | 0.3 FTestXRP transferred; 0.15 FTestXRP executor fee paid to the deployed key |
-| timing | **154 s**: 5 s to see it, 145 s attesting, 4 s from proof to executed |
+| timing | **165 s** from XRPL ledger close. From the service seeing it: 154 s — 5 s before paying for the attestation, 145 s attesting, 4 s from proof to executed |
 | trace | [`deployed-executor-run.json`](fixtures/measurements/deployed-executor-run.json) |
 
 Verified from the receipts rather than the service's own report: both transactions are `from`

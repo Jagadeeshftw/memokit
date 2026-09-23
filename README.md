@@ -3,7 +3,8 @@
 **memokit executes XRPL-originated calls on assets a Flare account already holds. There is no
 FAssets mint in the path, no Flare-assigned destination tag, and no wallet registration.**
 
-You sign one XRPL Payment. Its memo is a 42-byte commitment to what your Flare account should do.
+You sign one XRPL Payment. Its memo is either a 42-byte commitment to what your Flare account should
+do, or the instruction itself, inline.
 FDC attests the payment, anyone submits the proof, and the account runs exactly the calls you
 committed to: a vault deposit, a payout to five addresses, a borrow, a swap — or a redemption that
 sends XRP back to your own XRPL address. You never hold an EVM key at any point.
@@ -19,8 +20,11 @@ running at https://memokit-executor-production.up.railway.app;
 [executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running another.
 
 > **Latency is about two and a half minutes, and that is FDC's round cadence, not this code.**
-> XRPL payment to executed call took 152 s and 162 s in Phase 1, 118 s in Phase 2, 127 s in
-> Phase 3 and 159 s through the open executor in Phase 4. About 90% of it
+> XRPL submit to executed call took 152 s and 162 s in Phase 1, 118 s in Phase 2, and 127 s and
+> 162 s in Phase 3. Through the open executor in Phase 4 it was 165 s and 167 s, timed from the
+> XRPL ledger close rather than from submit, so those two read a few seconds low; they are slower
+> because the service polls the ledger every 15 s and the DA Layer every 30 s rather than waiting
+> on the payment. Across the runs, 80 to 90% of the time
 > is one leg, waiting for the FDC voting round to close and the Data Availability Layer to serve the
 > proof. Nothing here can shorten that leg, so instructions that depend on a price carry a
 > deadline (see [Deadlines](#deadlines)).
@@ -101,7 +105,10 @@ alone: 5.0 FTestXRP relayed by Flare's own operator
 ([`0x7faeb3ec…7d84`](https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84)),
 then 4.0 relayed by us
 ([`0xe7f4ac74…106b`](https://coston2-explorer.flare.network/tx/0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b)),
-162 s. FSA account 10.0 → 1.0, memokit account 10.1 → 19.1.
+the second run 162 s end to end. FSA account 10.0 → 5.0 → 1.0, memokit account 10.1 → 15.1 → 19.1,
+read from archive state at each execute block
+([run 1](fixtures/measurements/fsa-import-run1-trace.json),
+[run 2](fixtures/measurements/fsa-import-trace.json)).
 
 **Cash out to XRPL.** One XRPL payment redeemed a lot of FXRP through FAssets and XRP arrived back
 on XRPL Testnet. Start and end on the XRP Ledger, no EVM key at any point.
@@ -113,16 +120,20 @@ on XRPL Testnet. Start and end on the XRP Ledger, no EVM key at any point.
 | XRPL Payment in | [`A92E0E7C…3E47`](https://testnet.xrpl.org/transactions/A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47) |
 | execute | [`0x4527b740…5022`](https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022) |
 | XRPL payout | [`F7858109…9ECD`](https://testnet.xrpl.org/transactions/F7858109B0AD251D1BB44227AAB73E10F4651587FA30022278AA497A485E9ECD) |
-| result | 19.1 → 9.1 FXRP burned on Flare; 9.948010 XRP delivered on XRPL |
-| latency | 127 s to the execute, **321 s** until the XRP landed |
+| result | one 10.0 FXRP lot burned on Flare (account 19.1 → 9.1); 9.948010 XRP delivered on XRPL |
+| latency | **148 s** from XRPL submit to XRP delivered on XRPL, 21 s after the execute |
 | trace | [`cash-out-trace.json`](fixtures/measurements/cash-out-trace.json) |
 
-The last 193 s of that is not memokit: `redeem` creates an obligation and an FAssets *agent*
-discharges it. See [PHASE3.md](PHASE3.md) for what happens when one does not, and for why one 10.0
-FXRP lot delivers 9.948010 XRP rather than 10.
+Two different clocks, and they measure different things. **148 s** is what the user waits: from
+signing the XRPL payment to XRP arriving on XRPL. **297 s** is when Flare *confirmed* the agent's
+payout (block 35694411), which the agent can do only after proving its own XRPL payment through
+FDC — another voting round, after the XRP has already arrived. The agent paid 21 s after `redeem`; see
+[PHASE3.md](PHASE3.md) for what happens when one does not, and for why one 10.0 FXRP lot delivers
+9.948010 XRP rather than 10.
 
 Also live on Coston2: the rescue classifier, run against the deployment's real history (7 payments,
-1 executed, 6 attested but never delivered).
+1 executed, 6 attested but never delivered). That run was not recorded as a fixture; the counts are
+from the commit that introduced it.
 
 ### Phase 4: a QR, and nobody at the keyboard
 
@@ -136,7 +147,7 @@ voting round, simulated, and submitted.
 | requestAttestation | [`0x4ba4816f…2865`](https://coston2-explorer.flare.network/tx/0x4ba4816fc4b511a93c0b52115d56034e939bf9d0aba224f41c3419ba17ca2865) |
 | execute | [`0x1eefa273…60b4`](https://coston2-explorer.flare.network/tx/0x1eefa273d1a19fae0db851edcf964fce390edc08cb2f5a2a4de3485b2bd360b4) |
 | result | 0.5 FTestXRP transferred; 0.2 FTestXRP executor fee paid out of the same balance |
-| latency | 159 s, of which 138 s is the FDC voting round |
+| latency | 167 s from XRPL ledger close; 159 s from the service seeing it, of which 138 s was attesting (the FDC round, plus the service's 30 s proof polling) |
 | trace | [`executor-service-run.json`](fixtures/measurements/executor-service-run.json) |
 
 Lending (Kinetic) and DEX (SparkDEX V3) integrations, the FTSOv2 rate bound and the deep-queue
@@ -208,8 +219,11 @@ griefing analysis.
 
 Attestation takes minutes and markets do not wait, so an instruction that touches a price should
 commit to a deadline and a minimum output in its own calldata. Both are then inside the hash.
-`DEFAULT_DEADLINE_SECONDS` is **900**: the worst measured 162 s, plus one missed 90 s round, times
-about 3.5. The derivation is next to the constant in `sdk/src/deadline.ts`.
+`DEFAULT_DEADLINE_SECONDS` is **900**. It was derived from Phase 1's worst of 162 s, plus one missed
+90 s round, times 3.5. The worst measured since is 173 s from XRPL ledger close (the first FSA
+import, which Flare's operator delivered), about 180 s from submit; against that, 900 s is still
+about 3.3 times a slow-but-ordinary path. The derivation is next to the constant in
+`sdk/src/deadline.ts`.
 
 ## Layout
 
@@ -231,7 +245,7 @@ git clone --recurse-submodules <repo-url>
 npm install
 forge build
 forge test              # 145 Solidity tests
-npm test                # 138 SDK + 42 executor tests
+npm test                # 138 SDK + 63 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi (fork profile only)
 ```
 
@@ -289,7 +303,8 @@ execution time. It catches pool manipulation, sandwiching and thin pools — a 3
 signed absolute floor let through is refused at a 1% oracle bound. It does **not** catch genuine
 market movement during the ~150 s an attestation takes, because the oracle moves with the market;
 that is what the deadline is for. Use both. Feed decimals are read live rather than committed,
-because 3 of 7 reference feeds report different decimals on Coston2 than on Flare mainnet.
+because 3 of 7 reference feeds report different decimals on Coston2 than on Flare mainnet — the
+feeds, their IDs and both networks' decimals are in [docs/ftso-feeds.md](docs/ftso-feeds.md).
 
 **Simulation before submission.** The open executor simulates every `execute` before sending it,
 so a lost race costs the attestation fee rather than the gas of a reverting transaction, and a
@@ -303,15 +318,18 @@ each — the carrier payment, the attestation fee and the instruction are three 
 
 ## Status and limits
 
+Every factual claim in this README, with its evidence level and the transaction or test behind it,
+is in [CLAIMS.md](CLAIMS.md). Build copy from that file, not from this one.
+
 What has run against live infrastructure, and what has not:
 
 | | Coston2 + XRPL Testnet | Flare mainnet fork, FDC simulated |
 |---|---|---|
 | vault deposit, no mint | live | — |
-| payout, 1 payment → 5 transfers | live | live |
-| executor fee in the moved asset | live | live |
+| payout, 1 payment → 5 transfers | live | fork |
+| executor fee in the moved asset | live | fork |
 | import from Flare Smart Accounts | live | — |
-| cash out to XRPL | live | live |
+| cash out to XRPL | live | fork |
 | rescue classifier | live | — |
 | open executor service | live, deployed | — |
 | status API | live | — |
@@ -325,15 +343,18 @@ Limits, stated rather than left to be discovered:
 - **No mainnet deployment and no mainnet transaction.** Everything live is Coston2 and XRPL Testnet.
 - **Post-conditions are floors only.** An instruction that spends cannot assert its own purpose;
   a cash-out asserts what it left behind instead.
-- **A cash-out is not atomic and not instant.** `redeem` creates an obligation that an FAssets
-  *agent* discharges — 193 s in the live run — or is defaulted on, in which case the redeemer is
-  paid in collateral on Flare rather than XRP, and somebody has to submit the non-existence proof.
+- **A cash-out is not atomic.** `redeem` creates an obligation that an FAssets *agent*
+  discharges or defaults on. In the live run the agent paid 21 s after `redeem`, and the XRP
+  arrived 148 s after the user signed; Flare only confirmed that payout 297 s after signing,
+  because the agent has to prove it through FDC. On a default the redeemer is paid in collateral on
+  Flare rather than XRP, and somebody has to submit the non-existence proof.
 - **One lot does not deliver one lot.** 10.000000 FXRP produced 9.948010 XRP, through an FAssets
   pool fee and the agent's redemption fee. Quote from the event, not from the lot size.
 - **A payload-format change needs a redeploy, and a redeploy moves every account address.**
   `executor/src/migrateFunds.ts` is the way across; without it, funds are stranded.
-- **A testnet's FAssets redemption queue is inventory.** The first live cash-out attempt reverted
-  `RedeemZeroLots()` against an empty queue.
+- **A testnet's FAssets redemption queue is inventory.** A simulated `redeem(1)` from the account
+  reverted `RedeemZeroLots()` on 2026-09-21 because the queue was empty at that block; a ticket
+  appeared three minutes later and was drained within ten. The live cash-out ran the next day.
 - **The public DA Layer allows about 20 requests a minute**; a self-hosted one is the obvious next
   step. `eth_getLogs` is capped at 30 blocks on the public RPC, which bounds every backward search.
 - **A Compound-style market reports some failures as a return value, not a revert.** Attach a

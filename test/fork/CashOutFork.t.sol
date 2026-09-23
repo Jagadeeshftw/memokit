@@ -53,10 +53,11 @@ interface IFAssetsRedemption {
  * @dev Why this is a fork test as well as a live one.
  *
  *      The cash-out DID run live on Coston2 -- see fixtures/measurements/cash-out-trace.json --
- *      but only on the second attempt. On the first, Coston2's FAssets redemption queue was
- *      empty: `redemptionQueue(0, 20)` returned zero tickets and a live `redeem(1)` reverted
- *      `RedeemZeroLots()`, after every one of memokit's own checks had passed. A day later the
- *      queue had refilled and the same instruction went through.
+ *      but a day after the queue first let it down. A simulated `redeem(1)` sent directly from
+ *      the account reverted `RedeemZeroLots()` because Coston2's FAssets redemption queue was
+ *      empty at that block (35645314, confirmed from archive state). It was a simulation, not a
+ *      live instruction through memokit, so none of memokit's checks were in the path. A day
+ *      later the queue had refilled and the instruction went through.
  *
  *      That is the reason this test exists. The testnet queue is inventory that other people
  *      supply and drain -- five tickets before the live trace, one after -- so a suite that

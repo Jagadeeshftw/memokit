@@ -1,0 +1,135 @@
+{
+  "readAt": "2026-09-23T04:51:14Z",
+  "registry": "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
+  "ftsoV2": {
+    "coston2": {
+      "address": "0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d",
+      "block": 35723169
+    },
+    "flare": {
+      "address": "0x7BDE3Df0624114eDB3A67dFe6753e62f4e7c1d20",
+      "block": 70422032
+    }
+  },
+  "feeds": [
+    {
+      "name": "FLR/USD",
+      "feedId": "0x01464c522f55534400000000000000000000000000",
+      "coston2": {
+        "value": "759920",
+        "decimals": 8,
+        "price": 0.0075992,
+        "timestamp": 1790139065
+      },
+      "flare": {
+        "value": "760069",
+        "decimals": 8,
+        "price": 0.00760069,
+        "timestamp": 1790139091
+      },
+      "decimalsDiffer": false
+    },
+    {
+      "name": "XRP/USD",
+      "feedId": "0x015852502f55534400000000000000000000000000",
+      "coston2": {
+        "value": "1649146",
+        "decimals": 6,
+        "price": 1.649146,
+        "timestamp": 1790139065
+      },
+      "flare": {
+        "value": "1645146",
+        "decimals": 6,
+        "price": 1.645146,
+        "timestamp": 1790139096
+      },
+      "decimalsDiffer": false
+    },
+    {
+      "name": "ETH/USD",
+      "feedId": "0x014554482f55534400000000000000000000000000",
+      "coston2": {
+        "value": "2781782",
+        "decimals": 3,
+        "price": 2781.782,
+        "timestamp": 1790139065
+      },
+      "flare": {
+        "value": "2780978",
+        "decimals": 3,
+        "price": 2780.978,
+        "timestamp": 1790139096
+      },
+      "decimalsDiffer": false
+    },
+    {
+      "name": "USDT/USD",
+      "feedId": "0x01555344542f555344000000000000000000000000",
+      "coston2": {
+        "value": "999879",
+        "decimals": 6,
+        "price": 0.999879,
+        "timestamp": 1790139065
+      },
+      "flare": {
+        "value": "100002",
+        "decimals": 5,
+        "price": 1.00002,
+        "timestamp": 1790139096
+      },
+      "decimalsDiffer": true
+    },
+    {
+      "name": "USDC/USD",
+      "feedId": "0x01555344432f555344000000000000000000000000",
+      "coston2": {
+        "value": "999918",
+        "decimals": 6,
+        "price": 0.999918,
+        "timestamp": 1790139065
+      },
+      "flare": {
+        "value": "99988",
+        "decimals": 5,
+        "price": 0.99988,
+        "timestamp": 1790139096
+      },
+      "decimalsDiffer": true
+    },
+    {
+      "name": "BTC/USD",
+      "feedId": "0x014254432f55534400000000000000000000000000",
+      "coston2": {
+        "value": "8716202",
+        "decimals": 2,
+        "price": 87162.02,
+        "timestamp": 1790139065
+      },
+      "flare": {
+        "value": "8712489",
+        "decimals": 2,
+        "price": 87124.89,
+        "timestamp": 1790139102
+      },
+      "decimalsDiffer": false
+    },
+    {
+      "name": "SGB/USD",
+      "feedId": "0x015347422f55534400000000000000000000000000",
+      "coston2": {
+        "value": "842144",
+        "decimals": 9,
+        "price": 0.000842144,
+        "timestamp": 1790139091
+      },
+      "flare": {
+        "value": "84388",
+        "decimals": 8,
+        "price": 0.00084388,
+        "timestamp": 1790139102
+      },
+      "decimalsDiffer": true
+    }
+  ]
+}

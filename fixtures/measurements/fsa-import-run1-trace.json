@@ -1,0 +1,73 @@
+{
+  "note": "Import from Flare Smart Accounts into memokit, via FSA payment-reference instruction 0x01. Live on Coston2 + XRPL Testnet. Run 1 of 2. This file was written after the fact, on 2026-09-23, from the chain: the script's own trace for this run was overwritten by run 2 and never committed. Every value below was re-read from the XRP Ledger or from Coston2 archive state, and each balance was read on two independent archive endpoints, which agreed.",
+  "occurredAt": "2026-09-21T10:20:44Z",
+  "recordedAt": "2026-09-23",
+  "source": {
+    "xrpl": "https://s.altnet.rippletest.net:51234 (tx)",
+    "coston2ArchiveState": [
+      "https://114.rpc.thirdweb.com",
+      "https://rpc.ankr.com/flare_coston2"
+    ],
+    "why": "the public Coston2 RPC has pruned this state (missing trie node), so balances at these blocks need an archive endpoint"
+  },
+  "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+  "fsaController": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
+  "fsaAccount": "0xA7F3A5EeD4694F849A803dd9DE2b9a0A29ef30f3",
+  "memokitController": "0x98882776ED3CB4b3abB86CceFE2f46C1aAed9E36",
+  "memokitAccount": "0x8F1eD3f5355846008A47ce91Fbc49EE1808d43b1",
+  "fsaReceivingAddress": "rEyj8nsHLdgt79KJWzXR5BgF7ZbaohbXwq",
+  "paymentReference": "0x0100000000000000004c4b408f1ed3f5355846008a47ce91fbc49ee1808d43b1",
+  "referenceDecoded": {
+    "instructionId": 1,
+    "walletId": 0,
+    "amountDrops": "5000000",
+    "recipient": "0x8F1eD3f5355846008A47ce91Fbc49EE1808d43b1"
+  },
+  "carrierDrops": "1000000",
+  "instructionFeeDrops": "1000",
+  "instructionFeeReadAtBlock": 35644917,
+  "xrplTransactionHash": "3EB2AABBB0B78B7C96D08BE259573C2D6AB5366C6A0AE24C124DA1507586A992",
+  "xrplLedgerIndex": 20933506,
+  "xrplCloseTime": "2026-09-21T10:17:51Z",
+  "requestAttestationTx": "0xc56f5fde638681a1a289eac6c6cbf11c2abc36ca3140018df3665a712576087c",
+  "requestAttestationBlock": 35644795,
+  "otherAttestationRequests": [
+    {
+      "tx": "0x32563eccbbfe6f7e51fb35eb46aae354abb2cb52b7c749bf13a4db30777f88a4",
+      "block": 35644791,
+      "from": "0x096103b7541bc4ad716abe6cfcdda728819f4b2f",
+      "note": "Not ours. An attestation for the same XRPL payment, requested 4 blocks before ours. Ours was therefore redundant: it cost the 1000 wei fee and 83,304 gas and bought nothing. Run 2 shows the same pattern, so on the FSA import path memokit's own request has so far never been needed."
+    }
+  ],
+  "votingRoundId": 1461732,
+  "votingRoundSource": "the proof's response.votingRound, read from the execute transaction's calldata",
+  "fsaExecuteTx": "0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84",
+  "fsaExecuteBlock": 35644917,
+  "relayedBy": "0xcA0Bf4Cbc1Cf8c4b5FD7984b42AF907099084466",
+  "relayedByFlareOperator": true,
+  "ourRelay": "Never reached the chain. No transaction from 0x8848d857... to the FSA controller exists in blocks 35644912-35644947: the loss was caught before broadcast, so it cost no gas. PHASE3.md's 'reverted TransactionAlreadyExecuted' describes the simulated call, not a mined transaction.",
+  "transferInExecuteReceipt": "0xa7f3a5ee... -> 0x8f1ed3f5... 5000000 (FTestXRP)",
+  "balances": {
+    "fsaBefore": "10000000",
+    "fsaAfter": "5000000",
+    "memokitBefore": "10100000",
+    "memokitAfter": "15100000",
+    "decimals": 6,
+    "readAtBlocks": {
+      "before": 35644916,
+      "after": 35644917
+    },
+    "derivedNumbersWereCorrect": true
+  },
+  "latencySeconds": null,
+  "latencyNote": "The script's own stage marks for this run were not kept, so there is no submit-based latency. chainLatencySeconds below is measured from the XRPL ledger close, which is later than submit by several seconds; it is not directly comparable with the script-measured figures in other traces.",
+  "chainLatencySeconds": {
+    "xrpl:closed -> first attestation request (not ours)": 13,
+    "xrpl:closed -> our attestation request": 18,
+    "xrpl:closed -> fsa:executed (by Flare's operator)": 173
+  },
+  "explorer": {
+    "fsaExecute": "https://coston2-explorer.flare.network/tx/0x7faeb3ecf2f463cb269a0c2540c57c673cfd8f4d059cdfc4421f743132777d84",
+    "xrpl": "https://testnet.xrpl.org/transactions/3EB2AABBB0B78B7C96D08BE259573C2D6AB5366C6A0AE24C124DA1507586A992"
+  }
+}

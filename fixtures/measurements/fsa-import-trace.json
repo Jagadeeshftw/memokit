@@ -1,5 +1,5 @@
 {
-  "note": "Import from Flare Smart Accounts into memokit, via FSA payment-reference instruction 0x01. Live on Coston2 + XRPL Testnet.",
+  "note": "Import from Flare Smart Accounts into memokit, via FSA payment-reference instruction 0x01. Live on Coston2 + XRPL Testnet. Run 2 of 2; run 1 is fsa-import-run1-trace.json.",
   "capturedAt": "2026-09-21T10:25:07.641Z",
   "xrplOwner": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
   "fsaController": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
@@ -19,6 +19,14 @@
   "xrplTransactionHash": "3B2780C10EB02D085C5AFCE50AAC999FF0E9EE246AFF3004CD397C00C1E8E453",
   "xrplLedgerIndex": 20933588,
   "requestAttestationTx": "0x2a8e6a6f222727fbadb80ede552d4871e45128205cd3bfb0b4c805cdd9ec8cc5",
+  "otherAttestationRequests": [
+    {
+      "tx": "0xa5fffd6c93a036db0d1d3b547804a7ed3f6d3f10128bbe12eeeec82d0bdd779c",
+      "block": 35645002,
+      "from": "0x096103b7541bc4ad716abe6cfcdda728819f4b2f",
+      "note": "Not ours. Added 2026-09-23 from chain: an attestation for the same XRPL payment, requested 3 blocks before ours (0x2a8e6a6f..., block 35645005). Ours was redundant, as in run 1."
+    }
+  ],
   "votingRoundId": 1461735,
   "fsaExecuteTx": "0xe7f4ac745ed10d3e45dec8934afd9df9f15ddd3536ba393acaa7db7d4fd5106b",
   "fsaExecuteBlock": 35645080,

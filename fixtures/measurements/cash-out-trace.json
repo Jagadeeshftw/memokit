@@ -50,5 +50,23 @@
     "execute": "https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022",
     "xrplIn": "https://testnet.xrpl.org/transactions/A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47",
     "xrplOut": "https://testnet.xrpl.org/transactions/0xf7858109b0ad251d1bb44227aab73e10f4651587fa30022278aa497a485e9ecd"
+  },
+  "timingCorrection": {
+    "recordedAt": "2026-09-23",
+    "why": "latencySeconds above are the script's own marks. 'memokit:executed -> redemption:performed' (193 s) and 'total' (321 s) measure when the tracker, polling every 15 s, NOTICED the confirmation on Flare. They are neither the user's wait nor the chain's confirmation time.",
+    "fromTheChain": {
+      "xrplPaymentInClosed": "2026-09-22T12:54:50Z (ledger 20961791)",
+      "executeBlockTimestamp": "2026-09-22T12:56:49Z (block 35694328)",
+      "xrplPayoutClosed": "2026-09-22T12:57:11Z (ledger 20961833)",
+      "redemptionPerformedOnFlare": "2026-09-22T12:59:40Z (block 35694411, tx 0x8231af723da86ad2151e47303c63f2591cc9629ea221160cc5e644934d9c435a)"
+    },
+    "secondsFromXrplSubmit": {
+      "toExecute": 127,
+      "toXrpDeliveredOnXrpl": 148,
+      "toFlareConfirmingThePayout": 297,
+      "toTheTrackerNoticing": 321
+    },
+    "agentPaidSecondsAfterExecute": "21 (script's execute mark to payout ledger close; 22 by block timestamp)",
+    "whatTheUserWaits": "148 s: signing the XRPL payment to XRP arriving on XRPL"
   }
 }

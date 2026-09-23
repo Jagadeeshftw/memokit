@@ -35,5 +35,12 @@
       "redemptionQueueFirst5": "[(7203, 0x55c815260cBE6c45Fe5bFe5FF32E3C7D746f14dC, 20000000)] 0"
     },
     "outcome": "redeem(1) succeeded live and was filled from ticket 7180, agent 0xd5dEFe2c62D48788BB3889534FBFe7Aea0602D64 -- the head of the queue at the time. See cash-out-trace.json."
+  },
+  "correction": {
+    "recordedAt": "2026-09-23",
+    "whatTheFailedAttemptWas": "A simulated redeem(1) sent directly from the account 0x8F1eD3f5... to the AssetManager (eth_call), not a live cash-out through memokit. memokit's own checks were not in the path.",
+    "queueAtTheSimulation": "empty at block 35645314 (2026-09-21T10:33:18Z); replaying the call there reproduces RedeemZeroLots()",
+    "whyThisFileShowsATicket": "coston2.redemptionQueueFirst20 was captured at block ~35645510, three minutes after ticket 7059 (30 FXRP) appeared. Archive state: empty at 35645390, ticket at 35645480, down to 20 FXRP by 35645630, empty again by 35645914. The note's 'empty' was true at the simulation, not at capture.",
+    "source": "Coston2 archive state via https://rpc.ankr.com/flare_coston2"
   }
 }
