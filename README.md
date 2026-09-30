@@ -10,8 +10,10 @@ committed to: a vault deposit, a payout to five addresses, a borrow, a swap — 
 sends XRP back to your own XRPL address. You never hold an EVM key at any point.
 
 Flare Smart Accounts already reaches arbitrary calls through memo opcodes `0xFF`/`0xFE`, but only as
-a side effect of `executeDirectMintingWithData`: every instruction mints FXRP and inherits FAssets'
-direct-minting limits. That coupling is the gap memokit fills. The account is derived from your XRPL
+a side effect of FAssets direct minting (verified from Flare's deployed contracts, 2026-09-30; see
+[CLAIMS.md](CLAIMS.md)): every such instruction mints FXRP and inherits FAssets' direct-minting
+limits. Without a mint it offers a fixed menu of instructions: transfer FXRP, redeem it, and deposit
+into or withdraw from registered vaults. That coupling is the gap memokit fills. The account is derived from your XRPL
 address alone, so there is nothing to register and no tag to buy.
 
 **An open executor** watches for these payments, pays for the attestation and submits the proof
