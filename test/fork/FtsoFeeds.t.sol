@@ -71,11 +71,15 @@ contract FtsoFeedsTest is Test {
         }
     }
 
+    /// @dev Archive endpoints, not the public ones. This reads the head of both chains, and the
+    ///      public nodes sometimes answer a head-of-chain storage read with "missing trie node"
+    ///      from a node that has already pruned it -- which failed this test in 2 of 5 runs on
+    ///      2026-09-30, for reasons that had nothing to do with the feeds.
     function test_everyReferenceFeedExistsOnBothNetworks() public {
-        vm.createSelectFork("coston2");
+        vm.createSelectFork("coston2_archive");
         int8[7] memory coston2 = _report("coston2");
 
-        vm.createSelectFork("flare");
+        vm.createSelectFork("flare_archive");
         int8[7] memory flare = _report("flare");
 
         // The finding: same feed, same category byte, different decimals per network.

@@ -38,6 +38,9 @@ coston2 = "https://coston2-api.flare.network/ext/C/rpc"
 # fail with "missing trie node", even a few blocks behind head. Tests that touch state the
 # cache does not already hold use an archive endpoint instead.
 flare_archive = "https://flare.rpc.thirdweb.com"
+# The same problem on Coston2. The public endpoint dropped state at the head of chain often
+# enough to fail FtsoFeedsTest in 2 of 5 runs on 2026-09-30 ("missing trie node").
+coston2_archive = "https://114.rpc.thirdweb.com"
 
 # Fork tests: Flare mainnet at a pinned block, proofs built by the SDK through ffi.
 # Simulated verification -- see test/fork/ForkBase.t.sol. ffi stays off in every other profile.
