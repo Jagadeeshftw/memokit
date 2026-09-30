@@ -20,11 +20,12 @@ running at https://memokit-executor-production.up.railway.app;
 [executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running another.
 
 > **Latency is about two and a half minutes, and most of it is FDC's round cadence, not this code.**
-> Across all twelve live runs to date, from the XRPL payment's ledger close to the executed call on
-> Flare: **114–174 s, median 151 s**. The largest part is the FDC leg — from the attestation request
+> Across all fourteen live runs to date, from the XRPL payment's ledger close to the executed call on
+> Flare: **114–174 s, median 148 s**. The largest part is the FDC leg — from the attestation request
 > to Flare publishing that voting round's Merkle root — at **46–86% of the total, median 73%**. The
 > rest is seeing the payment and requesting (8–23 s), then fetching the proof and submitting
-> (11–53 s); the open executor sits high in that last range because it polls rather than waits.
+> (11–53 s); the open executor usually takes longer there (18–53 s, median 36 s, against 11–30 s for
+> the scripts) because it polls rather than waits.
 > Every figure is from chain timestamps, and every run is listed in
 > [`latency-all-runs.json`](fixtures/measurements/latency-all-runs.json). Nothing here can
 > shorten the FDC leg, so instructions that depend on a price carry a deadline (see
@@ -134,10 +135,11 @@ A cash-out is not "no mint". The FXRP is burned, and FAssets' redemption mints i
 in the same transaction, so total supply falls by the redeemed lot less that fee. memokit mints
 nothing, but "nothing was minted" must never be said of a cash-out.
 
-**How long the XRP takes depends on the FAssets agent, not on memokit.** Two live cash-outs so far,
+**How long the XRP takes depends on the FAssets agent, not on memokit.** Three live cash-outs so far,
 measured from the XRPL payment's ledger close to the payout's ledger close: **141 s** in this run,
-and **18.2 minutes** (1,090 s) in the demo dry run of 2026-09-23. From the execute to the payout
-that is 22 s and 16.2 minutes. Both agents paid on time.
+**18.2 minutes** (1,090 s) in the demo dry run of 2026-09-23, and 179 s in the video's run of
+2026-09-30. From the execute to the payout that is 22 s, 16.2 minutes and 30 s. Every agent paid
+on time.
 
 Two different clocks, and they measure different things. In this run, **148 s** is what the user
 waited: from signing the XRPL payment to XRP arriving on XRPL. **297 s** is when Flare *confirmed* the agent's
@@ -364,12 +366,12 @@ Limits, stated rather than left to be discovered:
 - **Post-conditions are floors only.** An instruction that spends cannot assert its own purpose;
   a cash-out asserts what it left behind instead.
 - **A cash-out is not atomic, and its timing is the agent's.** `redeem` creates an obligation
-  that an FAssets *agent* discharges or defaults on. Across the two live cash-outs the agent paid
-  22 s and 16.2 minutes after the execute: from XRPL ledger close to payout close, 141 s and 18.2
-  minutes. In the faster run the XRP arrived 148 s after the user signed, and Flare only
+  that an FAssets *agent* discharges or defaults on. Across the three live cash-outs the agent paid
+  between 22 s and 16.2 minutes after the execute: from XRPL ledger close to payout close, 141 s to
+  18.2 minutes. In the faster run the XRP arrived 148 s after the user signed, and Flare only
   confirmed that payout 297 s after signing, because the agent has to prove it through FDC.
 - **A cash-out burns FXRP, and FAssets mints itself a fee.** Supply fell 9.998 FTestXRP across the
-  execute block on both live cash-outs. "No mint" holds for the vault-deposit and payout runs,
+  execute block on all three live cash-outs. "No mint" holds for the vault-deposit and payout runs,
   where supply was identical across the execute block, and never for a cash-out. On a default the redeemer is paid in collateral on
   Flare rather than XRP, and somebody has to submit the non-existence proof.
 - **One lot does not deliver one lot.** 10.000000 FXRP produced 9.948010 XRP, through an FAssets

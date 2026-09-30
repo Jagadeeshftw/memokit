@@ -84,7 +84,25 @@
    "requestsInWindow": 42,
    "forThisPayment": 1,
    "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
+  },
+  {
+   "run": "video cash-out",
+   "xrpl": "5B0F1DF6653129B778FA9E5E18585D31BA3CE6BB4C0AE6379A48645EE772B15D",
+   "fromBlock": 36039392,
+   "toBlock": 36039641,
+   "requestsInWindow": 43,
+   "forThisPayment": 1,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
+  },
+  {
+   "run": "video vault deposit",
+   "xrpl": "7316F6FE7825FDE06360E8EC331D142267FC48C2F7AEAAD9294C27D3364E05AA",
+   "fromBlock": 36039481,
+   "toBlock": 36039715,
+   "requestsInWindow": 48,
+   "forThisPayment": 1,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
   }
  ],
- "result": "Nine of nine: exactly one request per payment, sent by the relayer that executed it. Nobody else requested the same attestation."
+ "result": "Eleven of eleven: exactly one request per payment, sent by the relayer that executed it. Nobody else requested the same attestation."
 }

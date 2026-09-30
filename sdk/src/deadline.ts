@@ -14,9 +14,9 @@
  *   = a slow-but-ordinary path        252 s
  *   x a safety factor of 3.5          ~ 900 s
  *
- * The worst observed has since risen. Across all twelve live runs to 2026-09-30 the slowest was the
+ * The worst observed has since risen. Across all fourteen live runs to 2026-09-30 the slowest was the
  * fund migration, 174 s from XRPL ledger close to execution -- about 180 s from submit -- and the
- * open executor's runs take 165-167 s from ledger close, because it polls rather than waits (every
+ * open executor's runs have taken 133-167 s from ledger close; it polls rather than waits (every
  * run: fixtures/measurements/latency-all-runs.json). Redone with 180 s the path is 270 s, and 900 s is a
  * factor of about 3.3 rather than 3.5. Still comfortable, so the constant stands; the margin is
  * recorded here so it is not quietly assumed to be larger than it is.

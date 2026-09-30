@@ -1,5 +1,5 @@
 {
- "note": "End-to-end latency and the FDC leg, recomputed from chain timestamps for every live run in which an XRPL payment led to an execute on Coston2 -- twelve, as of 2026-09-30. Nothing here comes from a script's own clock: every figure is a difference between an XRPL ledger close time and Coston2 block timestamps.",
+ "note": "End-to-end latency and the FDC leg, recomputed from chain timestamps for every live run in which an XRPL payment led to an execute on Coston2 -- fourteen, as of 2026-09-30 (the last two are the grant video's cash-out and vault deposit). Nothing here comes from a script's own clock: every figure is a difference between an XRPL ledger close time and Coston2 block timestamps.",
  "computedAt": "2026-09-30",
  "definitions": {
   "total": "XRPL payment's ledger close -> the execute's block timestamp",
@@ -14,11 +14,11 @@
   "relay": "0x5017728F117501A24EF9C3756C07f0d564598596, topic ProtocolMessageRelayed(uint8,uint32,bool,bytes32)"
  },
  "summary": {
-  "runs": 12,
+  "runs": 14,
   "totalSeconds": {
    "min": 114,
    "max": 174,
-   "median": 151.0
+   "median": 148.0
   },
   "fdcLegSeconds": {
    "min": 64,
@@ -30,9 +30,19 @@
    "max": 85.8,
    "median": 72.8
   },
+  "closeToRequestSeconds": {
+   "min": 8,
+   "max": 23,
+   "median": 13.5
+  },
+  "rootToExecuteSeconds": {
+   "min": 11,
+   "max": 53,
+   "median": 26.5
+  },
   "slowest": "fund migration"
  },
- "supersedes": "README's 'about 90%' and CLAIMS' '80 to 90%' / '79-94%'. Those came from the scripts' own stage marks and counted DA Layer polling as part of the FDC leg; the chain cannot see DA availability, so this file measures the leg to the root being published instead. The nine-run '114-173 s' omitted the fund migration (174 s).",
+ "supersedes": "README's 'about 90%' and CLAIMS' '80 to 90%' / '79-94%'. Those came from the scripts' own stage marks and counted DA Layer polling as part of the FDC leg; the chain cannot see DA availability, so this file measures the leg to the root being published instead. The nine-run '114-173 s' omitted the fund migration (174 s). The twelve-run summary (114-174 s, median 151 s; FDC leg 46-86%, median 73%) is superseded by this one.",
  "runs": [
   {
    "run": "P1 mock vault",
@@ -261,6 +271,44 @@
    "rootToExecute": 34,
    "total": 120,
    "fdcShare": 58.3
+  },
+  {
+   "run": "video cash-out",
+   "kind": "memokit",
+   "xrpl": "5B0F1DF6653129B778FA9E5E18585D31BA3CE6BB4C0AE6379A48645EE772B15D",
+   "execute": "0x70dbf64279f8b55c0ab43900a94eb8c2d9031a1d6b31b3336991a05b244efabb",
+   "xrplClose": 1790786271,
+   "requestBlock": 36039592,
+   "requestTs": 1790786285,
+   "round": 1470625,
+   "rootRelayedBlock": 36039641,
+   "rootRelayedTs": 1790786402,
+   "executeBlock": 36039650,
+   "executeTs": 1790786420,
+   "closeToRequest": 14,
+   "fdcLeg": 117,
+   "rootToExecute": 18,
+   "total": 149,
+   "fdcShare": 78.5
+  },
+  {
+   "run": "video vault deposit",
+   "kind": "memokit",
+   "xrpl": "7316F6FE7825FDE06360E8EC331D142267FC48C2F7AEAAD9294C27D3364E05AA",
+   "execute": "0xbdaec296b3af6dd47e464264ad502ce2daa54fd222df2a0e1622ad72eca593ed",
+   "xrplClose": 1790786482,
+   "requestBlock": 36039681,
+   "requestTs": 1790786496,
+   "round": 1470627,
+   "rootRelayedBlock": 36039715,
+   "rootRelayedTs": 1790786577,
+   "executeBlock": 36039729,
+   "executeTs": 1790786615,
+   "closeToRequest": 14,
+   "fdcLeg": 81,
+   "rootToExecute": 38,
+   "total": 133,
+   "fdcShare": 60.9
   }
  ]
 }
