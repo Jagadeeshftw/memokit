@@ -1,6 +1,6 @@
 {
- "note": "End-to-end latency and the FDC leg, recomputed from chain timestamps for every live run in which an XRPL payment led to an execute on Coston2 -- fourteen, as of 2026-09-30 (the last two are the grant video's cash-out and vault deposit). Nothing here comes from a script's own clock: every figure is a difference between an XRPL ledger close time and Coston2 block timestamps.",
- "computedAt": "2026-09-30",
+ "note": "End-to-end latency and the FDC leg, recomputed from chain timestamps for every live run in which an XRPL payment led to an execute on Coston2 -- nineteen, as of 2026-10-01: fourteen to 2026-09-30 (the last two the grant video's cash-out and vault deposit), and five on 2026-10-01 (two status-page checks, the docs' SDK quickstart and cash-out, and a fourth FSA import). Nothing here comes from a script's own clock: every figure is a difference between an XRPL ledger close time and Coston2 block timestamps. Each run's voting round is the Relay's getVotingRoundId at its request's timestamp, and matches the round the executor recorded where it recorded one.",
+ "computedAt": "2026-10-01",
  "definitions": {
   "total": "XRPL payment's ledger close -> the execute's block timestamp",
   "closeToRequest": "XRPL ledger close -> the block of the earliest FdcHub AttestationRequest for that payment",
@@ -14,35 +14,36 @@
   "relay": "0x5017728F117501A24EF9C3756C07f0d564598596, topic ProtocolMessageRelayed(uint8,uint32,bool,bytes32)"
  },
  "summary": {
-  "runs": 14,
+  "runs": 19,
   "totalSeconds": {
-   "min": 114,
+   "min": 92,
    "max": 174,
-   "median": 148.0
+   "median": 140
   },
   "fdcLegSeconds": {
-   "min": 64,
+   "min": 56,
    "max": 146,
-   "median": 107.5
+   "median": 99
   },
   "fdcSharePercent": {
    "min": 45.7,
    "max": 85.8,
-   "median": 72.8
+   "median": 74.8
   },
   "closeToRequestSeconds": {
    "min": 8,
    "max": 23,
-   "median": 13.5
+   "median": 13
   },
   "rootToExecuteSeconds": {
    "min": 11,
    "max": 53,
-   "median": 26.5
+   "median": 23
   },
-  "slowest": "fund migration"
+  "slowest": "fund migration",
+  "fastest": "status check, vault deposit 2"
  },
- "supersedes": "README's 'about 90%' and CLAIMS' '80 to 90%' / '79-94%'. Those came from the scripts' own stage marks and counted DA Layer polling as part of the FDC leg; the chain cannot see DA availability, so this file measures the leg to the root being published instead. The nine-run '114-173 s' omitted the fund migration (174 s). The twelve-run summary (114-174 s, median 151 s; FDC leg 46-86%, median 73%) is superseded by this one.",
+ "supersedes": "README's 'about 90%' and CLAIMS' '80 to 90%' / '79-94%'. Those came from the scripts' own stage marks and counted DA Layer polling as part of the FDC leg; the chain cannot see DA availability, so this file measures the leg to the root being published instead. The nine-run '114-173 s' omitted the fund migration (174 s). The twelve-run summary (114-174 s, median 151 s; FDC leg 46-86%, median 73%) is superseded by this one. The fourteen-run summary (114-174 s, median 148 s) is superseded by this one.",
  "runs": [
   {
    "run": "P1 mock vault",
@@ -309,6 +310,101 @@
    "rootToExecute": 38,
    "total": 133,
    "fdcShare": 60.9
+  },
+  {
+   "run": "status check, vault deposit 1",
+   "kind": "memokit",
+   "xrpl": "1F443AF34527ACEDF38F1D0398B69405E227721ACE8AA00B1B9AC75787844AA0",
+   "execute": "0x03c3ec254b8d58196ecd0ea0373dfa8caa6baa9e0f4173b70b520c0a84aba86e",
+   "xrplClose": 1790795560,
+   "requestBlock": 36043765,
+   "requestTs": 1790795576,
+   "round": 1470728,
+   "rootRelayedBlock": 36043820,
+   "rootRelayedTs": 1790795662,
+   "executeBlock": 36043839,
+   "executeTs": 1790795695,
+   "closeToRequest": 16,
+   "fdcLeg": 86,
+   "rootToExecute": 33,
+   "total": 135,
+   "fdcShare": 63.7
+  },
+  {
+   "run": "status check, vault deposit 2",
+   "kind": "memokit",
+   "xrpl": "B2BDC07CA996B2878FB5599245B2A4ED1526326E47FF13DB905467EFF057E61D",
+   "execute": "0x9df734cfcea5959da5c15f95054cf7f06993d3c8b120e00c10da97582c0deeeb",
+   "xrplClose": 1790795862,
+   "requestBlock": 36043949,
+   "requestTs": 1790795879,
+   "round": 1470731,
+   "rootRelayedBlock": 36043970,
+   "rootRelayedTs": 1790795935,
+   "executeBlock": 36043977,
+   "executeTs": 1790795954,
+   "closeToRequest": 17,
+   "fdcLeg": 56,
+   "rootToExecute": 19,
+   "total": 92,
+   "fdcShare": 60.9
+  },
+  {
+   "run": "docs: SDK quickstart vault deposit",
+   "kind": "memokit",
+   "xrpl": "C806C632EF6397D067283C4F919F3A15CC121CF096EAD3A8B81BD564BD3DE206",
+   "execute": "0x92322b6ca3d90c6a75375b678ed267d9f68eec038efaf54109a3e062eee115f6",
+   "xrplClose": 1790796240,
+   "requestBlock": 36044121,
+   "requestTs": 1790796248,
+   "round": 1470736,
+   "rootRelayedBlock": 36044214,
+   "rootRelayedTs": 1790796382,
+   "executeBlock": 36044224,
+   "executeTs": 1790796400,
+   "closeToRequest": 8,
+   "fdcLeg": 134,
+   "rootToExecute": 18,
+   "total": 160,
+   "fdcShare": 83.8
+  },
+  {
+   "run": "docs: cash-out",
+   "kind": "memokit",
+   "xrpl": "95E4B21C2E2BB15222F553E62081228F918BF76DEA61E42A02C5B2EDC5B5B051",
+   "execute": "0x0eb398deac81248a37e29a23df9d43459430843db3ff1f6bec0867b54882e1c3",
+   "xrplClose": 1790796632,
+   "requestBlock": 36044318,
+   "requestTs": 1790796643,
+   "round": 1470740,
+   "rootRelayedBlock": 36044368,
+   "rootRelayedTs": 1790796745,
+   "executeBlock": 36044382,
+   "executeTs": 1790796763,
+   "closeToRequest": 11,
+   "fdcLeg": 102,
+   "rootToExecute": 18,
+   "total": 131,
+   "fdcShare": 77.9
+  },
+  {
+   "run": "FSA import run 4",
+   "kind": "fsa-import",
+   "xrpl": "060B0F9EE045372E9FB64536C6A55B8F269BEC1A8151D56DD318947E29170835",
+   "execute": "0xe0aadc85372e4cb0eb6ec28c8f195d99ef42f07930664194f2320139d1cd23ef",
+   "xrplClose": 1790796831,
+   "requestBlock": 36044421,
+   "requestTs": 1790796841,
+   "round": 1470742,
+   "rootRelayedBlock": 36044468,
+   "rootRelayedTs": 1790796925,
+   "executeBlock": 36044471,
+   "executeTs": 1790796936,
+   "closeToRequest": 10,
+   "fdcLeg": 84,
+   "rootToExecute": 11,
+   "total": 105,
+   "fdcShare": 80.0
   }
  ]
 }
