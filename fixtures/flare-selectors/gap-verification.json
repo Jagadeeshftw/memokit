@@ -1,0 +1,552 @@
+{
+ "what": "Re-verification of the core gap claim against the deployed MasterAccountController, 2026-09-30.",
+ "method": [
+  "Every live selector read with IDiamondLoupe.facets() at the stated block and named from the facet ABIs; none unnamed.",
+  "Verified source for each live facet fetched from the network explorer (Blockscout getsourcecode); every low-level call site (.call, delegatecall, functionCall) located in it.",
+  "eth_call of handleMintedFAssets at the stated block, once from an unrelated address and once from the AssetManager, with dummy arguments; revert data decoded.",
+  "A live DirectMintingExecuted per network: receipt Transfer logs of the fAsset read to see where the executor fee comes from."
+ ],
+ "networks": {
+  "coston2": {
+   "controller": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
+   "registryName": "MasterAccountController",
+   "block": 36034536,
+   "selectorCount": 74,
+   "unnamedSelectors": 0,
+   "facets": [
+    {
+     "address": "0x32cf6C232b26CeecDBbfD15B2B6ae6759d2c4dd9",
+     "codehash": "0xfc0d9d60d3c73a9102c59c4ced29be4a418a3b03f97639223a5c421e393af57c",
+     "verifiedSource": "DiamondCutFacet",
+     "functions": [
+      "diamondCut"
+     ]
+    },
+    {
+     "address": "0x908EA6a57f2A83514567b7F0FE6DE46688cA002c",
+     "codehash": "0x598709fff4f54c02890977c4c253c64b2cdc7badf0dae97b04acc2076a80f317",
+     "verifiedSource": "DiamondLoupeFacet",
+     "functions": [
+      "facetAddress",
+      "facetAddresses",
+      "facetFunctionSelectors",
+      "facets",
+      "supportsInterface"
+     ]
+    },
+    {
+     "address": "0x11E943ec6F2FA0481d3bDb5651478121C39a778b",
+     "codehash": "0x09c87d7c6746f9f305936e55c5a7e3c3066901d19550c4bf3d40aba022602963",
+     "verifiedSource": "OwnershipFacet",
+     "functions": [
+      "owner",
+      "transferOwnership"
+     ]
+    },
+    {
+     "address": "0x5D8EaA1723cAcD82133025a1C67096c2DbB9a7db",
+     "codehash": "0xdc1f3ce089481af7f85481ef5030621bfa3cfa449f5f75c0eef40b596b4d519e",
+     "verifiedSource": "AgentVaultsFacet",
+     "functions": [
+      "addAgentVaults",
+      "getAgentVaults",
+      "removeAgentVaults"
+     ]
+    },
+    {
+     "address": "0x0B2D8eD2794a8213a32de8f4Cca9e53fC17567cf",
+     "codehash": "0xd16cb57691e1c5853476f8a9d507dde82bcc9df76a38a175428078a2a5340479",
+     "verifiedSource": "ExecutorsFacet",
+     "functions": [
+      "getExecutorInfo",
+      "setExecutor",
+      "setExecutorFee"
+     ]
+    },
+    {
+     "address": "0x7889a8Bd5B02190C051F4Eb64e82c6b4C6618755",
+     "codehash": "0x90b6825b1f876ffc34eb2576e61ae7b7d78da4c79a1b4bb7f423ad71e17f6759",
+     "verifiedSource": "InstructionFeesFacet",
+     "functions": [
+      "getDefaultInstructionFee",
+      "getInstructionFee",
+      "removeInstructionFees",
+      "setDefaultInstructionFee",
+      "setInstructionFees"
+     ]
+    },
+    {
+     "address": "0xEAA885fDa7Bf285101d92F6dEc0622E1967F5fa5",
+     "codehash": "0xaebf0af1d89827319d78bbc2592e2180afa4509bdf44711d747474cc682285ab",
+     "verifiedSource": "InstructionsFacet",
+     "functions": [
+      "executeDepositAfterMinting",
+      "executeInstruction",
+      "getTransactionIdForCollateralReservation",
+      "reserveCollateral"
+     ]
+    },
+    {
+     "address": "0x2054188F6d309923EFb247E863eBc5EDC0B183EB",
+     "codehash": "0x587329995cd064ff6124a8847be3de5b09efafd188f90836c0367755d4e5d952",
+     "verifiedSource": "MemoInstructionsFacet",
+     "functions": [
+      "getExecutor",
+      "getNonce",
+      "handleMintedFAssets",
+      "isTransactionIdUsed"
+     ]
+    },
+    {
+     "address": "0x396a741cCDB1cd285A0f9d480b589A1289F70e84",
+     "codehash": "0x5ae913ec817f78231a186b7d68904d08137770d383da1116394e193b91f50858",
+     "verifiedSource": "PaymentProofsFacet",
+     "functions": [
+      "getPaymentProofValidityDurationSeconds",
+      "getSourceId",
+      "setPaymentProofValidityDuration"
+     ]
+    },
+    {
+     "address": "0x420F046af867b9BD41c9beEd8dd28DAfD1af0413",
+     "codehash": "0x6cbbb0343130c6c2cbc3dc415dd7b53ee4d45c3691c17a51998cfabc63a76379",
+     "verifiedSource": null,
+     "functions": [
+      "createPersonalAccount",
+      "getPersonalAccount",
+      "implementation",
+      "setPersonalAccountImplementation"
+     ]
+    },
+    {
+     "address": "0xbcE1972De5d1598a948A36186eCeBFD4690F3a5C",
+     "codehash": "0x8d00226c448662f69d7037f51029ead10aece606f50aa8d2415e395c53ca6f15",
+     "verifiedSource": "ReaderFacet",
+     "functions": [
+      "agentVaults",
+      "getBalances",
+      "isSmartAccount",
+      "vaults"
+     ]
+    },
+    {
+     "address": "0xa0946B655c1d919D05C8e26d21Cc1Cdc0c0133DB",
+     "codehash": "0x3b5a03014526bc3c12d1af0cb872fd286f8b96e5fb86a3e833bce55f0b0eed68",
+     "verifiedSource": "TimelockFacet",
+     "functions": [
+      "cancelTimelockedCall",
+      "executeTimelockedCall",
+      "getExecuteTimelockedCallTimestamp",
+      "getTimelockDurationSeconds",
+      "setTimelockDuration"
+     ]
+    },
+    {
+     "address": "0xCbFCfe037D0dCa671064299F6c1f0823062FD27D",
+     "codehash": "0x052978a076c340a4e155311e74cc9ff193bf42cbc1d92417824a356a2105ec58",
+     "verifiedSource": "VaultsFacet",
+     "functions": [
+      "addVaults",
+      "getVaults"
+     ]
+    },
+    {
+     "address": "0x7e5F45660bf028E3F6E7E3BB378625EEe92de1bb",
+     "codehash": "0x5f407206de3053aad3529309dc833373573a32b06a0f05029ae85bc85aa87a98",
+     "verifiedSource": "XrplProviderWalletsFacet",
+     "functions": [
+      "addXrplProviderWallets",
+      "getXrplProviderWallets",
+      "removeXrplProviderWallets"
+     ]
+    },
+    {
+     "address": "0x766150cff70161D1a5084F70F1f670DC1aAe4d4d",
+     "codehash": "0xdbb0d8905608277279db4bee1a7bcf79f8feb73df3a2c282e5667316a475a549",
+     "verifiedSource": "PauseFacet",
+     "functions": [
+      "addPausers",
+      "addUnpausers",
+      "getPausers",
+      "getUnpausers",
+      "isPaused",
+      "isPauser",
+      "isUnpauser",
+      "pause",
+      "removePausers",
+      "removeUnpausers",
+      "unpause"
+     ]
+    },
+    {
+     "address": "0x1C56F0c852ea0db76ca329Ab12d5D3BeF1c89B6d",
+     "codehash": "0xf20df08df62ccbafba3e8da9a4e1743fb8a147941f0239d6688c0ef38bb2f3e8",
+     "verifiedSource": "VaultsFacet",
+     "functions": [
+      "removeVaults"
+     ]
+    },
+    {
+     "address": "0xE97E049F9175cD6a562D59AeB2db79db12FF136A",
+     "codehash": "0xe3c4bcd8a280a3562742b983602afcf7b546937b23e6bcd1fbe3a2249ce35f63",
+     "verifiedSource": null,
+     "functions": [
+      "createSubaccount",
+      "getSubaccount",
+      "implementationForType",
+      "setSubaccountImplementation"
+     ]
+    },
+    {
+     "address": "0x3C0ec26C87Bc56F95db4359b308a152D209c70C7",
+     "codehash": "0x65c0ac56af1d3c9bcfa9052ca32b306a2ad581269f138410379f98879fa61006",
+     "verifiedSource": null,
+     "functions": [
+      "getBridgeRoute",
+      "getBridgeRoutes",
+      "getFxrpOft",
+      "getSubaccountTypeRoute",
+      "getSubaccountTypeRoutePin",
+      "setBridgeRoute",
+      "setFxrpOft",
+      "setSubaccountTypeRoute",
+      "setSubaccountTypeRouteSuspended"
+     ]
+    }
+   ],
+   "unverifiedFacets": [
+    "0x420F046af867b9BD41c9beEd8dd28DAfD1af0413",
+    "0xE97E049F9175cD6a562D59AeB2db79db12FF136A",
+    "0x3C0ec26C87Bc56F95db4359b308a152D209c70C7"
+   ]
+  },
+  "flare": {
+   "controller": "0x434936d47503353f06750Db1A444DBDC5F0AD37c",
+   "registryName": "MasterAccountController",
+   "block": 70988574,
+   "selectorCount": 59,
+   "unnamedSelectors": 0,
+   "facets": [
+    {
+     "address": "0xbBfDC00D4a230eB2cBf2623f8ca67C23D31E094D",
+     "codehash": "0xd5373fb6476a85185d3deb26df77ade094ace8e316aa17a1ec9311f9e556c64a",
+     "verifiedSource": "DiamondCutFacet",
+     "functions": [
+      "diamondCut"
+     ]
+    },
+    {
+     "address": "0x39Da5ec984c0E5797E0BD24706Ab35F21EB065d1",
+     "codehash": "0x71a4fbf2d44b48cbc3f1b4a099f16a08686f732c80b2e7a682a0f9685fd7f5d4",
+     "verifiedSource": "DiamondLoupeFacet",
+     "functions": [
+      "facetAddress",
+      "facetAddresses",
+      "facetFunctionSelectors",
+      "facets",
+      "supportsInterface"
+     ]
+    },
+    {
+     "address": "0x615eAdb82F2c3b84Ee4cd7ac5DefdF381d585978",
+     "codehash": "0xd55ffb61d489bf9e14ddeef839e0204c1c5e54df914a8a9171864d93bd2379cc",
+     "verifiedSource": "OwnershipFacet",
+     "functions": [
+      "owner",
+      "transferOwnership"
+     ]
+    },
+    {
+     "address": "0x8Aa4D8Aa06B6ed89f7BCCbE03Df50014B54e83ae",
+     "codehash": "0x62f83c57961bdc699886d32e809aa61bf49856a399a47e5ad01e53affeb42234",
+     "verifiedSource": "AgentVaultsFacet",
+     "functions": [
+      "addAgentVaults",
+      "getAgentVaults",
+      "removeAgentVaults"
+     ]
+    },
+    {
+     "address": "0xb59018153192F64b9c636FDE1C68aB385a3a9000",
+     "codehash": "0x2bd02ee89dbf3994bdaccadb03abec8f17d2c87a8682c579243e176bc8fc1297",
+     "verifiedSource": "ExecutorsFacet",
+     "functions": [
+      "getExecutorInfo",
+      "setExecutor",
+      "setExecutorFee"
+     ]
+    },
+    {
+     "address": "0xA74027f42622d9bF031Ed8a239A9de9834E8e382",
+     "codehash": "0x760871c4ead401840752b7955fc38614d0dbea7e3728f52fe24507b8bdb134f5",
+     "verifiedSource": "InstructionFeesFacet",
+     "functions": [
+      "getDefaultInstructionFee",
+      "getInstructionFee",
+      "removeInstructionFees",
+      "setDefaultInstructionFee",
+      "setInstructionFees"
+     ]
+    },
+    {
+     "address": "0x82e9ea6664320fA07B39714420E5db5ED75b4C98",
+     "codehash": "0x7e0c51017a82fac699e4fcb21c15635634d73cd75be081113a4d7a5dc9ee5d74",
+     "verifiedSource": "InstructionsFacet",
+     "functions": [
+      "executeDepositAfterMinting",
+      "executeInstruction",
+      "getTransactionIdForCollateralReservation",
+      "reserveCollateral"
+     ]
+    },
+    {
+     "address": "0x96B1c3AffB76C2ca4b6BAd7F5a566aF19621466e",
+     "codehash": "0xaa5bc60d2fe1f7db2ad18c66e0f86b4ad79b0505fbc2634b81edf775c2803925",
+     "verifiedSource": "MemoInstructionsFacet",
+     "functions": [
+      "getExecutor",
+      "getNonce",
+      "handleMintedFAssets",
+      "isTransactionIdUsed"
+     ]
+    },
+    {
+     "address": "0x713F9f07eC4930e08854Abdc10B8cBB9f2032C62",
+     "codehash": "0x2f655b542b8cce7752fc7e86bce23043367834c7a35cfad7cfe96e3747ac61b2",
+     "verifiedSource": "PaymentProofsFacet",
+     "functions": [
+      "getPaymentProofValidityDurationSeconds",
+      "getSourceId",
+      "setPaymentProofValidityDuration"
+     ]
+    },
+    {
+     "address": "0x1E262a42336757F31428DAe1C852A04e0558145a",
+     "codehash": "0x14bbbeb8b9d3a556ff2e912948c4deb3319da63d201a292490ff5bcebd4e683c",
+     "verifiedSource": "PersonalAccountsFacet",
+     "functions": [
+      "getPersonalAccount",
+      "implementation",
+      "setPersonalAccountImplementation"
+     ]
+    },
+    {
+     "address": "0x0CD8cAa37BfB38B479f46030A896B50E4F48c093",
+     "codehash": "0x8d00226c448662f69d7037f51029ead10aece606f50aa8d2415e395c53ca6f15",
+     "verifiedSource": "ReaderFacet",
+     "functions": [
+      "agentVaults",
+      "getBalances",
+      "isSmartAccount",
+      "vaults"
+     ]
+    },
+    {
+     "address": "0x8e3A6a98e26ee972C67F84aC3E3433ee4d9f3a80",
+     "codehash": "0xfdd2158c61950bfc4c86e34413348c1aa103a5efc9e774702d86ac31a7c69474",
+     "verifiedSource": "TimelockFacet",
+     "functions": [
+      "cancelTimelockedCall",
+      "executeTimelockedCall",
+      "getExecuteTimelockedCallTimestamp",
+      "getTimelockDurationSeconds",
+      "setTimelockDuration"
+     ]
+    },
+    {
+     "address": "0x1Af6e97a212FFC27fa47ba7B2f3134Ef504f005c",
+     "codehash": "0x3d56827cc95a8aad28fd7f2eb54abd54884c3e4e8fe0ac6f8a256d9be065affb",
+     "verifiedSource": "VaultsFacet",
+     "functions": [
+      "addVaults",
+      "getVaults"
+     ]
+    },
+    {
+     "address": "0xa4Baa23A503BF564A8b047ffC0fd4C5dd95c27be",
+     "codehash": "0xaed38b1d57e35543b26351e7cd0454518ecfa6e33d49ff7278af3c5357d018f6",
+     "verifiedSource": "XrplProviderWalletsFacet",
+     "functions": [
+      "addXrplProviderWallets",
+      "getXrplProviderWallets",
+      "removeXrplProviderWallets"
+     ]
+    },
+    {
+     "address": "0x588683acc6500cd9E08471F4D32a3BF40f71275f",
+     "codehash": "0x859f207de531eabf0bda85dc029a3ec39f392365a70bc087323ef6381f8101dd",
+     "verifiedSource": "PauseFacet",
+     "functions": [
+      "addPausers",
+      "addUnpausers",
+      "getPausers",
+      "getUnpausers",
+      "isPaused",
+      "isPauser",
+      "isUnpauser",
+      "pause",
+      "removePausers",
+      "removeUnpausers",
+      "unpause"
+     ]
+    }
+   ],
+   "unverifiedFacets": []
+  }
+ },
+ "callSites": {
+  "note": "Identical on both networks across the verified facets.",
+  "sites": [
+   {
+    "file": "contracts/smartAccounts/library/MemoInstructions.sol",
+    "code": "_personalAccount.call{value: msg.value}(userOp.callData)",
+    "reachedFrom": "MemoInstructionsFacet.handleMintedFAssets -> MemoInstructions.execute (opcodes 0xFF and 0xFE)",
+    "gate": "require(msg.sender == AssetManager, OnlyAssetManager())"
+   },
+   {
+    "file": "contracts/smartAccounts/facets/TimelockFacet.sol",
+    "code": "address(this).call(_encodedCall)",
+    "reachedFrom": "executeTimelockedCall",
+    "gate": "only a call whose hash the owner scheduled, after the delay"
+   },
+   {
+    "file": "contracts/diamond/libraries/LibDiamond.sol",
+    "code": "_init.delegatecall(_calldata)",
+    "reachedFrom": "diamondCut",
+    "gate": "owner"
+   }
+  ],
+  "instructionsFacet": "executeInstruction / reserveCollateral / executeDepositAfterMinting call typed personal-account methods only (reserveCollateral, transferFXrp, redeemFXrp, and the vault library deposit/redeem/requestRedeem/claim/claimWithdraw); none forwards caller-supplied calldata."
+ },
+ "gateProbe": {
+  "function": "handleMintedFAssets(bytes32,string,uint256,uint256,bytes,address,bytes)",
+  "args": {
+   "_transactionId": "0x1111111111111111111111111111111111111111111111111111111111111111",
+   "_sourceAddress": "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE",
+   "_amount": "10000000",
+   "_underlyingTimestamp": "0",
+   "_memoData": "0x",
+   "_executor": "0x0000000000000000000000000000000000000000",
+   "_data": "0x"
+  },
+  "results": [
+   {
+    "network": "coston2",
+    "block": 36036944,
+    "from": "0x1234567890AbcdEF1234567890aBcdef12345678",
+    "revertData": "0x6d5ab9d3",
+    "decoded": "OnlyAssetManager()"
+   },
+   {
+    "network": "coston2",
+    "block": 36036944,
+    "from": "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA",
+    "fromIs": "AssetManagerFXRP",
+    "revertData": "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002345524332303a207472616e7366657220746f20746865207a65726f20616464726573730000000000000000000000000000000000000000000000000000000000",
+    "decoded": "Error(\"ERC20: transfer to the zero address\")"
+   },
+   {
+    "network": "flare",
+    "block": 70992998,
+    "from": "0x1234567890AbcdEF1234567890aBcdef12345678",
+    "revertData": "0x6d5ab9d3",
+    "decoded": "OnlyAssetManager()"
+   },
+   {
+    "network": "flare",
+    "block": 70992998,
+    "from": "0x2a3Fe068cD92178554cabcf7c95ADf49B4B0B6A8",
+    "fromIs": "AssetManagerFXRP",
+    "revertData": "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002345524332303a207472616e7366657220746f20746865207a65726f20616464726573730000000000000000000000000000000000000000000000000000000000",
+    "decoded": "Error(\"ERC20: transfer to the zero address\")"
+   }
+  ],
+  "reading": "From an unrelated address the call stops at the gate: OnlyAssetManager(). From the AssetManager it passes the gate and fails further in, as expected with dummy arguments. The zero-address transfer is the executor-fee transfer: with no memo fee the facet falls back to AssetManager.getDirectMintingExecutorFeeUBA(), which read 100000 (coston2) and 200000 (flare) at the probe blocks, and _distributeFAssets pays it with fAsset.safeTransfer(_executor, fee) to the zero _executor passed. The other transfer in that function goes to the personal account derived from _sourceAddress, which is not zero. Read from source and those two values, not from a trace.",
+  "defaultExecutorFeeUBA": {
+   "coston2": "100000",
+   "flare": "200000"
+  }
+ },
+ "liveDirectMints": [
+  {
+   "network": "flare",
+   "tx": "0xd0d9a7925719835f34f159c66022613bb29aee2e4c2fc5926870a4fafd291237",
+   "block": 70984623,
+   "entry": "AssetManager.executeDirectMintingWithData",
+   "fAsset": "0xAd552A648C74D49E10027AB8a618A3ad4901c5bE",
+   "event": {
+    "personalAccount": "0x7c9d031f9f37d9cdfc86f8a0350e2fe2a26c3346",
+    "amount": "9900000",
+    "executorFee": "300000",
+    "executor": "0x10162fda21959f08d2f9c1b7740d104bc465b4a9"
+   },
+   "transfers": [
+    [
+     "0x0000000000000000000000000000000000000000",
+     "0x434936d47503353f06750db1a444dbdc5f0ad37c",
+     "9900000",
+     "minted to the controller"
+    ],
+    [
+     "0x434936d47503353f06750db1a444dbdc5f0ad37c",
+     "0x10162fda21959f08d2f9c1b7740d104bc465b4a9",
+     "300000",
+     "executor fee, from the minted fAsset"
+    ],
+    [
+     "0x434936d47503353f06750db1a444dbdc5f0ad37c",
+     "0x7c9d031f9f37d9cdfc86f8a0350e2fe2a26c3346",
+     "9600000",
+     "remainder to the personal account"
+    ]
+   ],
+   "alsoEmitted": "UserOperationExecuted -- the 0xFF/0xFE call ran in the same transaction"
+  },
+  {
+   "network": "coston2",
+   "tx": "0x2deb30360644db184667aee958cda78335c3c528a699751fa06b523d5584e259",
+   "block": 35860761,
+   "entry": "AssetManager.executeDirectMinting",
+   "fAsset": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+   "event": {
+    "personalAccount": "0x8a9eeeacfd1500bd26ca9c2d48cf0658b2a585c6",
+    "amount": "10100000",
+    "executorFee": "100000",
+    "executor": "0x103b384064ae85577127097a7ccadfd6fb13f437"
+   },
+   "transfers": [
+    [
+     "0x0000000000000000000000000000000000000000",
+     "0x434936d47503353f06750db1a444dbdc5f0ad37c",
+     "10100000",
+     "minted to the controller"
+    ],
+    [
+     "0x434936d47503353f06750db1a444dbdc5f0ad37c",
+     "0x103b384064ae85577127097a7ccadfd6fb13f437",
+     "100000",
+     "executor fee, from the minted fAsset"
+    ],
+    [
+     "0x434936d47503353f06750db1a444dbdc5f0ad37c",
+     "0x8a9eeeacfd1500bd26ca9c2d48cf0658b2a585c6",
+     "10000000",
+     "remainder to the personal account"
+    ]
+   ]
+  }
+ ],
+ "eventCounts": {
+  "note": "DirectMintingExecuted from the controller after each snapshot block (Blockscout getLogs, first page)",
+  "coston2": {
+   "fromBlock": 35633008,
+   "count": "1000 (page cap)",
+   "withFee": 913
+  },
+  "flare": {
+   "fromBlock": 70265577,
+   "count": 275,
+   "withFee": 273
+  }
+ }
+}
