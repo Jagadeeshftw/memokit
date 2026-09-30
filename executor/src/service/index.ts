@@ -153,6 +153,8 @@ export async function main(): Promise<void> {
       limits: config.httpLimits,
       ...(balanceWatch ? { balance: balanceWatch } : {}),
       lastTickAt: () => lastTickAt,
+      // With a pipeline running, it records its own transitions; a lookup must not pre-empt them.
+      working: deps !== null,
     });
     server.listen(config.httpPort, () => log.info("http listening", { port: config.httpPort }));
   }

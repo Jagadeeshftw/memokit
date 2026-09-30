@@ -26,8 +26,9 @@ audit found an error, the README has been corrected and the row says what change
 | **Open** | Not done, or not verified. | — |
 
 Test suites as of this audit: **145** Solidity (`forge test`), **24** fork (`npm run test:fork`),
-**152** SDK and **66** executor (`npm test`). All four re-run 2026-09-30; the fork suite passed five
-runs in a row that day.
+**152** SDK and **71** executor (`npm test`). All four re-run 2026-09-30, the executor suite again on
+2026-10-01 after five tests for the status-lookup race; the fork suite passed five runs in a row on
+2026-09-30.
 
 ## Easy to overstate
 

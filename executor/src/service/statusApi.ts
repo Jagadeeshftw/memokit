@@ -22,7 +22,7 @@ import {
 } from "@memokit/sdk";
 import { DaLayerClient } from "@memokit/sdk/fdc";
 import { rebuildRequest, findProofNearClose } from "./attestation.js";
-import { FINAL, type Store, type TrackedState, type Transition } from "./store.js";
+import { FINAL, type Store, type TrackedInstruction, type TrackedState, type Transition } from "./store.js";
 
 /** The published vocabulary. One term per place an instruction can be. */
 export type StatusState = TrackedState;
@@ -119,9 +119,51 @@ export interface StatusDeps {
    * read from the chain is unaffected.
    */
   daBudget?: { tryAcquire(): boolean };
+  /**
+   * True when this process also runs the pipeline, which records its own transitions for
+   * everything it tracks. False or absent in read-only mode, where a lookup is the only thing
+   * that ever writes a state the chain has reached.
+   */
+  working?: boolean;
 }
 
 export class NotFound extends Error {}
+
+/**
+ * What a transition's note says about who moved it. Only the first is a claim that this service
+ * did not do the work, so it may only be written when that is true.
+ */
+export const TRANSITION_NOTES = {
+  /** A lookup found the chain ahead, and no pipeline in this process will record the change. */
+  notPerformed: "observed on chain; this service did not perform the transition",
+  /** A lookup found the chain ahead of a pipeline that is still working it: a moment's lag. */
+  notYetRecorded: "on chain; this service has not recorded it yet",
+  /**
+   * Replaces `notPerformed` on records written before 2026-10-01, where a lookup raced the
+   * pipeline and the pipeline then did the work: its own `execution.byUs` says so.
+   */
+  recordedByLookup: "recorded by a status lookup moments before this service's own record",
+} as const;
+
+/**
+ * The transitions as they should be read.
+ *
+ * Until 2026-10-01 a lookup made while the pipeline was still working an instruction wrote the
+ * chain's state with `notPerformed`, and the pipeline's own record of the same state then added
+ * no transition, so the false note stayed. Where the record itself proves this service did the
+ * work -- it requested the attestation and its own execute landed (`byUs`) -- that note is
+ * corrected here, on read, rather than by rewriting the stored history.
+ */
+export function presentTransitions(tracked: TrackedInstruction): Transition[] {
+  const didTheWork = tracked.execution?.byUs === true;
+  return tracked.transitions.map((t) => {
+    const provedByUs = t.state === "proved" && tracked.attestation !== undefined;
+    if (didTheWork && t.note === TRANSITION_NOTES.notPerformed && (t.state === "executed" || provedByUs)) {
+      return { ...t, note: TRANSITION_NOTES.recordedByLookup };
+    }
+    return t;
+  });
+}
 
 /** Resolve one XRPL hash to its position in the state machine. */
 export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<StatusResponse> {
@@ -181,27 +223,41 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
   // started after the fact, has a store that lags -- and reporting its own stale view over the
   // chain's would be the one thing this endpoint must never do. So the classifier's verdict
   // wins, the observation is recorded, and the answer says the timestamps are observations.
+  //
+  // But a lookup made while this process's own pipeline is still working the instruction is not
+  // "the store lags": it is the chain a few seconds ahead of a pipeline that is about to record
+  // the same state itself -- the execute is mined before its receipt is back, a proof is served
+  // before the next poll. Writing the chain's state then would put "did not perform" on work
+  // this service is in the middle of doing, and the pipeline's own record of that state would
+  // add no transition to replace it. So in that case nothing is written: the answer carries the
+  // chain's state as an unrecorded transition, and is not final until the pipeline catches up.
+  const now = deps.now?.() ?? Date.now();
   let transitionsComplete = true;
+  let unrecorded: Transition | undefined;
   if (tracked && tracked.state !== state) {
-    deps.store.update(
-      tracked.transactionId,
-      { state },
-      "observed on chain; this service did not perform the transition",
-    );
-    transitionsComplete = false;
+    const pipelineWillRecord = deps.working === true && !FINAL.has(tracked.state);
+    if (pipelineWillRecord) {
+      unrecorded = { state, at: now, note: TRANSITION_NOTES.notYetRecorded };
+    } else {
+      deps.store.update(tracked.transactionId, { state }, TRANSITION_NOTES.notPerformed);
+      transitionsComplete = false;
+    }
   } else if (!tracked) {
     transitionsComplete = false;
   }
 
-  const transitions: Transition[] = deps.store.get(transactionId)?.transitions ?? [
-    { state: "seen", at: record.closedAt * 1000, note: "XRPL close; this service was not watching" },
-  ];
+  const stored = deps.store.get(transactionId);
+  const transitions: Transition[] = stored
+    ? [...presentTransitions(stored), ...(unrecorded ? [unrecorded] : [])]
+    : [{ state: "seen", at: record.closedAt * 1000, note: "XRPL close; this service was not watching" }];
 
   return {
     xrplHash: normalised,
     transactionId,
     state,
-    final: RESCUE_STATES[classified.state].final,
+    // A state the pipeline has yet to record is still going to change -- its execution details,
+    // at least -- so a caller that stops polling on `final` should not stop yet.
+    final: RESCUE_STATES[classified.state].final && unrecorded === undefined,
     classifier: {
       state: classified.state,
       reason: classified.reason,
@@ -221,7 +277,7 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
             "when each state was first observed, not when it was entered. The state itself is " +
             "read from the chain and is exact.",
         }),
-    elapsed: elapsedByState(transitions, deps.now?.() ?? Date.now()),
+    elapsed: elapsedByState(transitions, now),
     ...(tracked?.attestation
       ? { attestation: { txHash: tracked.attestation.txHash, votingRoundId: tracked.attestation.votingRoundId, at: tracked.attestation.at } }
       : {}),

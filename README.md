@@ -264,7 +264,7 @@ git clone --recurse-submodules <repo-url>
 npm install
 forge build
 forge test              # 145 Solidity tests
-npm test                # 152 SDK + 66 executor tests
+npm test                # 152 SDK + 71 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi (fork profile only)
 ```
 

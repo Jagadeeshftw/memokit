@@ -20,7 +20,7 @@ import type { Store } from "./store.js";
 import type { Logger } from "./log.js";
 import type { BalanceWatch } from "./balance.js";
 import { IpRateLimiter, TinyCache, TokenBucket } from "./rateLimit.js";
-import { statusOf, NotFound, type StatusDeps } from "./statusApi.js";
+import { statusOf, presentTransitions, NotFound, type StatusDeps } from "./statusApi.js";
 
 export interface HttpLimits {
   /** Requests per minute per caller. */
@@ -244,7 +244,7 @@ function listInstructions(store: Store, limit: number, state: string | null) {
       account: i.account,
       opcode: i.opcode,
       closedAt: i.closedAt,
-      transitions: i.transitions,
+      transitions: presentTransitions(i),
       executedBy: i.execution ? (i.execution.byUs ? "this-executor" : "another-executor") : null,
       executeTx: i.execution?.txHash || null,
       skipReason: i.skipReason ?? null,
