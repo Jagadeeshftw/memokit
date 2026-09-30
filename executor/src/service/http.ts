@@ -167,8 +167,8 @@ async function handle(
     deps.metrics.inc("memokit_executor_http_requests_total", { route, outcome: "ok" });
     const cached = metricsCache.get() ?? metricsCache.set(renderMetrics(deps, limiter));
     res.writeHead(200, {
+      ...CORS_HEADERS,
       "content-type": "text/plain; version=0.0.4",
-      "access-control-allow-origin": "*",
       "cache-control": `public, max-age=${metricsCache.maxAgeSeconds}`,
     });
     return void res.end(cached);
@@ -286,6 +286,20 @@ function routeName(path: string): string {
   return "other";
 }
 
+/**
+ * CORS headers every response carries.
+ *
+ * `Access-Control-Expose-Headers` is the one that is easy to miss. A browser lets page script
+ * read only a short safelist of response headers cross-origin, and `Retry-After` is not on it.
+ * Without this, the status page gets a 429 and cannot see how long it was asked to wait -- the
+ * header is on the wire, and `response.headers.get("retry-after")` still returns null.
+ */
+export const CORS_HEADERS: Readonly<Record<string, string>> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "*",
+  "access-control-expose-headers": "Retry-After",
+};
+
 function send(
   res: ServerResponse,
   code: number,
@@ -293,8 +307,7 @@ function send(
   extra: Record<string, string> = {},
 ): void {
   const headers: Record<string, string> = {
-    "access-control-allow-origin": "*",
-    "access-control-allow-headers": "*",
+    ...CORS_HEADERS,
     "cache-control": "no-store",
     ...extra,
   };
