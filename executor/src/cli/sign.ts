@@ -3,9 +3,10 @@
  *
  *   npm run sign -w @memokit/executor -- --owner r... --to 0x... --amount 1000000 [--fee 100000] [--inline] [--xaman]
  *   npm run sign -w @memokit/executor -- --owner r... --cash-out [--lots 1] [--fee 100000] [--xaman]
+ *   npm run sign -w @memokit/executor -- --owner r... --deposit 0xVault --amount 5000000 [--fee 100000] [--xaman]
  *
- * Two instructions: a token transfer, or a cash-out that redeems FXRP back to XRP on the
- * payer's own XRPL address.
+ * Three instructions: a token transfer, a cash-out that redeems FXRP back to XRP on the payer's
+ * own XRPL address, or a deposit into an ERC-4626 vault out of what the account already holds.
  *
  * Prints the unsigned XRPL Payment, renders it as a QR in the terminal and as a PNG, and --
  * with `--xaman` and credentials -- pushes it to Xaman and waits for the signature.
@@ -24,6 +25,7 @@ import {
   buildCashOutCalls,
   lotsLeavingFee,
   erc20BalanceAtLeast,
+  erc20DeltaAtLeast,
   Opcode,
   encodeMemo,
   encodeInstruction,
@@ -40,7 +42,17 @@ import {
 import { XamanClient, xamanCredentials, isXamanConfigured } from "../xaman.js";
 
 const REPO = resolve(import.meta.dirname, "../../..");
-const ERC20 = new Interface(["function transfer(address,uint256) returns (bool)"]);
+const ERC20 = new Interface([
+  "function transfer(address,uint256) returns (bool)",
+  "function approve(address,uint256) returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+]);
+const ERC4626 = new Interface([
+  "function asset() view returns (address)",
+  "function deposit(uint256,address) returns (uint256)",
+  "function previewDeposit(uint256) view returns (uint256)",
+  "function symbol() view returns (string)",
+]);
 
 /** Coston2's FAssets AssetManager for FXRP -- the contract a cash-out calls `redeem` on. */
 const COSTON2_ASSET_MANAGER = "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA";
@@ -74,6 +86,7 @@ async function main(): Promise<void> {
   const nonce: bigint = await controller.nonceOf(account);
 
   const cashOut = flag("cash-out");
+  const depositInto = arg("deposit");
   let token: string;
   let feeAmount: bigint;
   let calls: Call[];
@@ -110,6 +123,32 @@ async function main(): Promise<void> {
       `cash out ${plan.lots} lot(s) = ${formatUnits(plan.redeemableAmount, 6)} FXRP, ` +
       `XRP to ${plan.xrplDestination} (the payer's own address); ` +
       `${formatUnits(plan.dust, 6)} FXRP stays, of which ${formatUnits(feeAmount, 6)} pays the executor`;
+  } else if (depositInto) {
+    // A deposit of assets the account already holds: approve, then deposit to the account itself.
+    // The fee is paid in the vault's asset, after the calls, so the account must hold both.
+    const vault = new Contract(getAddress(depositInto), ERC4626, provider);
+    token = getAddress(await vault.asset());
+    const amount = BigInt(arg("amount") ?? need("MEMOKIT_DEPOSIT"));
+    feeAmount = BigInt(arg("fee") ?? DEFAULT_CASH_OUT_FEE);
+    const held: bigint = await new Contract(token, ERC20, provider).balanceOf(account);
+    if (held < amount + feeAmount) {
+      throw new Error(
+        `cannot deposit ${formatUnits(amount, 6)}: the account holds ${formatUnits(held, 6)} of ${token}, ` +
+          `and ${formatUnits(feeAmount, 6)} more must be left over for the executor fee.`,
+      );
+    }
+    const vaultAddress = await vault.getAddress();
+    calls = [
+      { target: token, value: 0n, data: ERC20.encodeFunctionData("approve", [vaultAddress, amount]) },
+      { target: vaultAddress, value: 0n, data: ERC4626.encodeFunctionData("deposit", [amount, account]) },
+    ];
+    // Shares must rise by at least 99% of what the vault quotes now: a floor against the rate
+    // moving between signing and execution, not a price guarantee.
+    const quoted: bigint = await vault.previewDeposit(amount);
+    postConditions = [erc20DeltaAtLeast(vaultAddress, account, (quoted * 99n) / 100n)];
+    describe =
+      `deposit ${formatUnits(amount, 6)} of ${token} into vault ${vaultAddress} (${await vault.symbol()}), ` +
+      `shares to the account itself; at least ${(quoted * 99n) / 100n} shares or it reverts`;
   } else {
     // One transfer, because this CLI exists to demonstrate the signing path rather than to be a
     // general instruction builder -- that is what the SDK is for.
@@ -139,7 +178,8 @@ async function main(): Promise<void> {
   // instruction, which is why it is a flag and not a decision made here.
   // A cash-out is always inline: the point of building one here is for the open executor to run
   // it, and an executor cannot run a commit memo without being handed the preimage.
-  const inline = flag("inline") || cashOut;
+  // A deposit built here is for the open executor too, so the same holds.
+  const inline = flag("inline") || cashOut || Boolean(depositInto);
   const payload = encodeInstruction(instruction);
   const commitment = commitmentOf(instruction);
   const memo = inline
