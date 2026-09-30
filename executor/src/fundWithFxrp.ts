@@ -6,9 +6,10 @@
  * exists; something has to put that balance there first, and on Coston2 the only way to get
  * FTestXRP is to mint it through FAssets.
  *
- * Direct minting cannot be used here: Coston2 routes direct-mint targets by XRPL
- * DestinationTag (observed on live transactions), and tags are registered by Flare, not by
- * arbitrary callers. So this runs the classic path instead:
+ * This runs the classic path, by choice. Direct minting would also work: its facet mints to a
+ * recipient named by a destination tag (anyone can reserve one for a fee) or by a 32-byte
+ * payment reference in the memo. An earlier version of this comment said tags were registered by
+ * Flare and direct minting was unavailable; both were wrong (CLAIMS.md, 2026-09-30).
  *
  *   reserveCollateral -> XRPL payment to the agent -> Payment attestation -> executeMinting
  *   -> transfer the minted FTestXRP to the personal account

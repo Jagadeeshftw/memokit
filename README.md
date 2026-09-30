@@ -1,7 +1,7 @@
 # memokit
 
 **memokit executes XRPL-originated calls on assets a Flare account already holds. memokit never
-mints FXRP to do it, there is no Flare-assigned destination tag, and no wallet registration.**
+mints FXRP to do it, there is no destination tag, and no wallet registration.**
 
 You sign one XRPL Payment. Its memo is either a 42-byte commitment to what your Flare account should
 do, or the instruction itself, inline.

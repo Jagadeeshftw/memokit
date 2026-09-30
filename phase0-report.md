@@ -395,6 +395,8 @@ Flare's operator uses **memos, and explicitly forbids destination tags** on the 
 
 Note that `IXRPPayment.ResponseBody` *does* expose `hasDestinationTag` and `destinationTag`, so the attestation carries them — you can and should assert `hasDestinationTag == false` rather than merely ignoring the field.
 
+> **Checked against deployed code 2026-09-30:** the front-run is real on Flare's direct-minting path — a destination tag with a recipient overrides the memo, and anyone can reserve a tag for 100 FLR. One correction to the quote: the tag is bought from the AssetManager's MintingTagManager, not "on the direct-minting facet". memokit's own payments go to its receiving address, not the core vault, so they never reach that routing. See `CLAIMS.md`, "How a destination tag becomes a direct-minting target".
+
 ---
 
 ## 6. Prior art — the ground is not taken, but the niche is narrower than assumed

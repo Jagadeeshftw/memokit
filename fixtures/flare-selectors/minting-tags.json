@@ -1,0 +1,78 @@
+{
+ "what": "How an XRPL destination tag becomes a direct-minting target on Flare, and who can make that happen. Read from Flare's deployed contracts on 2026-09-30.",
+ "method": [
+  "AssetManager.getMintingTagManager() read on each network; the proxy's EIP-1967 implementation slot read; verified source for both fetched from the network explorer (Blockscout getsourcecode). The two implementations' sources are identical.",
+  "Verified source of the AssetManager facet behind executeDirectMinting (selector 0x78d0299e via facetAddress) read for how a payment is routed.",
+  "eth_call of MintingTagManager.reserve() from an unrelated address (balance overridden to 1000 native) with value = reservationFee and value = reservationFee - 1.",
+  "Every MintingTagReserved event read from the explorer, to count who has reserved tags.",
+  "The same facet and tag manager read at Phase 1's blocks, to test whether Phase 1's statement was ever true."
+ ],
+ "networks": {
+  "coston2": {
+   "block": 36039083,
+   "assetManager": "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA",
+   "mintingTagManager": "0x094511737909b626391106bBc21B25feb2D67B96",
+   "implementation": "0x1f9582ba05a43b64dd46e884f562cb844b2ad831",
+   "name": "Minting Tag Manager (FTestXRP open beta)",
+   "reservationFee": "100000000000000000000",
+   "nextAvailableTag": 1377,
+   "totalSupply": 1357,
+   "reservedEvents": 1357,
+   "distinctReservers": 36,
+   "directMintingFacet": "0x4aFaEda2AC4442cD10Ac601622Eee0dF5DF78eeF",
+   "directMintingPaymentAddress": "rDhpmiPq4BVBDWMVdSrmkgt8thKyRzGV1p",
+   "governance": "0xC83Ec6a4aFf2099942836860A28C7e248Fabc32C"
+  },
+  "flare": {
+   "block": 70996880,
+   "assetManager": "0x2a3Fe068cD92178554cabcf7c95ADf49B4B0B6A8",
+   "mintingTagManager": "0xb426b5AE61c23fF1B901a8AD1f1A3921D1E9D2F1",
+   "implementation": "0xee6cd917fc18d71296182798a93724ff49ca053e",
+   "name": "FXRP Minting Tag",
+   "reservationFee": "100000000000000000000",
+   "nextAvailableTag": 803,
+   "totalSupply": 773,
+   "reservedEvents": 773,
+   "distinctReservers": 349,
+   "directMintingFacet": "0x2aa3E1d8ff2C1E2826A92bbe60Fe073241Ab6282",
+   "governance": "0xbe653C54DF337F13Fcb726101388F4a4803049F3"
+  }
+ },
+ "reserveProbe": {
+  "from": "0x1234567890AbcdEF1234567890aBcdef12345678",
+  "results": [
+   {
+    "network": "coston2",
+    "value": "reservationFee",
+    "returned": 1377
+   },
+   {
+    "network": "coston2",
+    "value": "reservationFee - 1",
+    "revertData": "0x83bd1ab4",
+    "decoded": "WrongReservationPaymentAmount()"
+   },
+   {
+    "network": "flare",
+    "value": "reservationFee",
+    "returned": 803
+   },
+   {
+    "network": "flare",
+    "value": "reservationFee - 1",
+    "revertData": "0x83bd1ab4",
+    "decoded": "WrongReservationPaymentAmount()"
+   }
+  ]
+ },
+ "findings": {
+  "whoCanReserve": "Anyone. reserve() is external payable with no access modifier; its only check is msg.value == reservationFee (100 FLR / 100 C2FLR). The caller becomes the tag's owner and its initial minting recipient.",
+  "tagNumbers": "Sequential: _reserve assigns nextAvailableTag and increments it. A buyer cannot choose a number, but tags are ERC-721 tokens and transfer() moves one to a new owner.",
+  "ownerControls": "setMintingRecipient and setAllowedExecutor are onlyTagOwner. A change of allowed executor waits out executorChangeAfterSeconds; a change of recipient takes effect at once.",
+  "governanceControls": "setReservationFee, setReservationFeeRecipient and setExecutorChangeAfterSeconds are onlyGovernance; the AssetManager's setMintingTagManager chooses the tag contract.",
+  "routing": "DirectMintingFacet._decodeTarget: if the payment has a destination tag whose mintingRecipient is non-zero, it mints to that recipient and ignores the memo. Otherwise a 32-byte DIRECT_MINTING payment reference mints to the address it encodes, a 48-byte DIRECT_MINTING_EX memo to its recipient with its executor, and anything else goes to the smart-account controller. The recipient is read at execution time unless the minting was delayed.",
+  "frontRunning": "Real on Flare's direct-minting path: a payment to the core vault that carries a destination tag mints to whoever that tag's owner has made recipient when it executes, not to the sender's smart account. The tag is bought from the MintingTagManager, not \"on the direct-minting facet\" as the spec phrases it.",
+  "phase1": "Refuted. The same facet and tag manager were deployed at Phase 1's blocks 35628898 and 35630179. Tag 1186 (read in Phase 1) was reserved by 0x66ecee0c624a848ad17936e714802eb0c097d5ca at block 35628898, tx 0x66a59c16ac5d40dfb94e6680ad99957788dafd7e7b37aa4efc8097f90cd0562b; the chain does not say who controls that address. The facet also routes by memo payment reference with no tag at all, so \"direct minting is not available to us\" was wrong as well.",
+  "memokit": "Not on this path. memokit accepts only payments to its own registered receiving address (rDfVHUx5SMgw5wwqjvzgFEFCnqW5CCGWyW on the current diamond); FAssets direct minting accepts only payments to the core vault (rDhpmiPq4BVBDWMVdSrmkgt8thKyRzGV1p). memokit rejects any tagged payment on chain so that the memo alone decides what happens."
+ }
+}

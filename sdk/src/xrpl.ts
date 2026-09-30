@@ -9,8 +9,9 @@ import { XRPL_MEMO_BUDGET_BYTES } from "./types.js";
  * does not have to install it.
  *
  * Two constraints from Phase 0 are enforced here rather than discovered at settlement time:
- * exactly one memo, and no destination tag. The second is a real front-running vector -- a
- * third party who buys the tag upstream can race the user -- and the contract asserts it on
+ * exactly one memo, and no destination tag. On Flare's direct-minting path a tag overrides the
+ * memo and anyone can buy one, so a tagged payment there can be front-run; memokit's payments do
+ * not take that path, but it keeps the rule so the memo alone decides. The contract asserts it on
  * chain, so sending one would burn the payment.
  */
 export class XrplSender {

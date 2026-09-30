@@ -75,8 +75,9 @@ library Proofs {
         uint64 validUntil = body.blockTimestamp + state.validityDurationSeconds;
         require(block.timestamp <= validUntil, ProofExpired(body.blockTimestamp, validUntil));
 
-        // A destination tag on the payment lets a third party buy the tag upstream and
-        // front-run the user. Flare forbids tags by convention; XRPPayment lets us assert it.
+        // No destination tag: the memo alone decides what a payment does. On Flare's direct-
+        // minting path a tag overrides the memo and anyone can buy one, which is why Flare's
+        // smart-account spec forbids them; memokit keeps the same rule, and XRPPayment lets us assert it.
         require(!body.hasDestinationTag, DestinationTagNotAllowed(body.destinationTag));
 
         require(

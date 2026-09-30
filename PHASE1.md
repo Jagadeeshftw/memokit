@@ -102,6 +102,15 @@ payment — tag 1186 with no memo at all), and tags are registered by Flare, not
 callers. That is worth knowing independently of funding: it means Flare's direct-mint rail
 has a registration gate that memokit's does not.
 
+> **Corrected 2026-09-30, from Flare's deployed contracts:** both statements above were wrong
+> when written. Tags are **not** registered by Flare: anyone can reserve one from the
+> AssetManager's MintingTagManager for 100 C2FLR (100 FLR on mainnet), and the caller owns it.
+> Tag 1186 was reserved that way, by an address the chain does not name. And direct minting
+> *was* available without a tag: the same facet routes a payment whose memo is a 32-byte direct-
+> minting payment reference to the address it encodes. The classic path was a choice, not a
+> necessity. Blocks, method and evidence: `CLAIMS.md`, "How a destination tag becomes a
+> direct-minting target", and `fixtures/flare-selectors/minting-tags.json`.
+
 That funding script does use the verifier, to encode the classic `Payment` request. That is
 deliberate and harmless — it is not the protocol path, and replicating `buildResponse` for a
 second attestation type would prove nothing new.

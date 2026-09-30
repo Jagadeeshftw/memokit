@@ -4,7 +4,7 @@
 > workspace imports before publishing. Not published.
 
 Execute calls on Flare from a single XRPL payment, acting on assets a Flare account **already
-holds**. memokit never mints FXRP to do it, there is no Flare-assigned destination tag and no
+holds**. memokit never mints FXRP to do it, there is no destination tag and no
 wallet registration: the account is derived from your XRPL address, and the memo is a 42-byte commitment
 to what it should do.
 
