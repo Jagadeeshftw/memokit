@@ -156,13 +156,37 @@ export const TRANSITION_NOTES = {
  */
 export function presentTransitions(tracked: TrackedInstruction): Transition[] {
   const didTheWork = tracked.execution?.byUs === true;
-  return tracked.transitions.map((t) => {
+  const out: Transition[] = [];
+  let furthest = -1;
+  for (const t of tracked.transitions) {
+    const rank = PROGRESS[t.state];
+    // A lookup whose proof search was skipped or missed used to write the instruction back from
+    // `proved` to `attesting`. Nothing moved on chain -- a served proof cannot be unserved -- so
+    // those steps backwards, and the repeat of the state they left, are not history.
+    if (rank !== undefined && rank < furthest && t.note === TRANSITION_NOTES.notPerformed) continue;
+    if (rank !== undefined && rank === furthest && out.at(-1)?.state === t.state) continue;
+    if (rank !== undefined) furthest = Math.max(furthest, rank);
     const provedByUs = t.state === "proved" && tracked.attestation !== undefined;
     if (didTheWork && t.note === TRANSITION_NOTES.notPerformed && (t.state === "executed" || provedByUs)) {
-      return { ...t, note: TRANSITION_NOTES.recordedByLookup };
+      out.push({ ...t, note: TRANSITION_NOTES.recordedByLookup });
+    } else {
+      out.push(t);
     }
-    return t;
-  });
+  }
+  return out;
+}
+
+/**
+ * The forward path an instruction takes. A lookup never reports a state earlier on it than the
+ * store already holds: the store's `proved` means a proof was fetched, and a lookup that could
+ * not afford or did not find one knows less, not something different.
+ */
+const PROGRESS: Partial<Record<TrackedState, number>> = { seen: 0, attesting: 1, proved: 2, executed: 3 };
+
+function behind(chain: TrackedState, stored: TrackedState): boolean {
+  const a = PROGRESS[chain];
+  const b = PROGRESS[stored];
+  return a !== undefined && b !== undefined && a < b;
 }
 
 /** Resolve one XRPL hash to its position in the state machine. */
@@ -217,7 +241,9 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
     payloadFor: () => undefined,
   });
 
-  const state = toStatusState(classified.state, tracked?.attestation !== undefined);
+  const read = toStatusState(classified.state, tracked?.attestation !== undefined);
+  // Never step backwards from what this service already recorded (see PROGRESS).
+  const state = tracked && behind(read, tracked.state) ? tracked.state : read;
 
   // The chain is the authority, not the store. A service running read-only, or one that was
   // started after the fact, has a store that lags -- and reporting its own stale view over the
