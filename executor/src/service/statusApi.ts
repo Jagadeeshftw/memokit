@@ -143,7 +143,18 @@ export const TRANSITION_NOTES = {
    * pipeline and the pipeline then did the work: its own `execution.byUs` says so.
    */
   recordedByLookup: "recorded by a status lookup moments before this service's own record",
+  /** Not stored, and closed too long ago to be waiting for the watcher: this service missed it. */
+  notWatching: "XRPL close; this service was not watching",
+  /** Not stored yet, but recent: the watcher reads the ledger on an interval and will. */
+  notPickedUpYet: "XRPL close; this service has not picked it up yet",
 } as const;
+
+/**
+ * How long after its XRPL close an unstored payment is taken to be waiting for the watcher. The
+ * watcher polls every 15 s by default and backfills recent history on start, so five minutes
+ * covers a slow poll and a restart without calling a genuinely missed payment "not yet".
+ */
+export const PICKUP_WINDOW_SECONDS = 300;
 
 /**
  * The transitions as they should be read.
@@ -258,6 +269,10 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
   // add no transition to replace it. So in that case nothing is written: the answer carries the
   // chain's state as an unrecorded transition, and is not final until the pipeline catches up.
   const now = deps.now?.() ?? Date.now();
+  // A payment this service has not stored yet, looked up moments after it closed, is one the
+  // watcher has not reached on its next pass -- not one this service missed. Saying it "did not
+  // work this instruction from the start" would be the same false claim in a different place.
+  const awaitingPickup = !tracked && deps.working === true && now / 1000 - record.closedAt < PICKUP_WINDOW_SECONDS;
   let transitionsComplete = true;
   let unrecorded: Transition | undefined;
   if (tracked && tracked.state !== state) {
@@ -268,14 +283,14 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
       deps.store.update(tracked.transactionId, { state }, TRANSITION_NOTES.notPerformed);
       transitionsComplete = false;
     }
-  } else if (!tracked) {
+  } else if (!tracked && !awaitingPickup) {
     transitionsComplete = false;
   }
 
   const stored = deps.store.get(transactionId);
   const transitions: Transition[] = stored
     ? [...presentTransitions(stored), ...(unrecorded ? [unrecorded] : [])]
-    : [{ state: "seen", at: record.closedAt * 1000, note: "XRPL close; this service was not watching" }];
+    : [{ state: "seen", at: record.closedAt * 1000, note: awaitingPickup ? TRANSITION_NOTES.notPickedUpYet : TRANSITION_NOTES.notWatching }];
 
   return {
     xrplHash: normalised,

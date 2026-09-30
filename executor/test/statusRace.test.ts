@@ -20,7 +20,10 @@ import { harness, inlineInstruction, CONTROLLER, type Harness } from "./harness.
 
 // What the chain says, as the classifier reads it. The classifier itself is covered elsewhere;
 // here it stands in for "the chain", so each step can put the chain exactly where it was.
-const chainSays = vi.hoisted(() => ({ state: "awaiting-attestation" as InstructionState }));
+const chainSays = vi.hoisted(() => ({
+  state: "awaiting-attestation" as InstructionState,
+  ledger: [] as Array<{ hash: string; closedAt: number; sender: string }>,
+}));
 vi.mock("@memokit/sdk", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@memokit/sdk")>();
   return {
@@ -32,6 +35,7 @@ vi.mock("@memokit/sdk", async (importOriginal) => {
         rescue: null,
         validitySecondsRemaining: 80_000,
       })),
+    fetchIncomingPayments: async () => chainSays.ledger,
   };
 });
 
@@ -71,6 +75,7 @@ function heldExecute() {
 
 beforeEach(() => {
   chainSays.state = "awaiting-attestation";
+  chainSays.ledger = [];
 });
 
 describe("a lookup polled during the executor's own processing", () => {
@@ -144,6 +149,38 @@ describe("a lookup polled during the executor's own processing", () => {
     const r = await statusOf(tx.xrplHash, statusDeps(h, true));
     expect(r.state).toBe("rescued");
     expect(r.transitions.at(-1)).toMatchObject({ state: "rescued", note: TRANSITION_NOTES.notPerformed });
+  });
+});
+
+describe("a lookup before the watcher has picked the payment up", () => {
+  const HASH = "1F443AF34527ACEDF38F1D0398B69405E227721ACE8AA00B1B9AC75787844AA0";
+  const onLedger = (secondsAgo: number) => {
+    chainSays.ledger = [{ hash: HASH, closedAt: Math.floor(Date.now() / 1000) - secondsAgo, sender: "rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE" }];
+  };
+
+  it("says 'not picked up yet', not 'did not work it', for a payment seconds old", async () => {
+    // The live check of 2026-10-01 caught this: six seconds of the false label before the
+    // watcher's next pass stored the payment.
+    onLedger(8);
+    const r = await statusOf(HASH, statusDeps(harness(), true));
+    expect(r.state).toBe("seen");
+    expect(r.transitions).toEqual([expect.objectContaining({ state: "seen", note: TRANSITION_NOTES.notPickedUpYet })]);
+    expect(r.final).toBe(false);
+    expectNoFalseLabel(r);
+  });
+
+  it("still says this service was not watching when the payment is long past the watcher's reach", async () => {
+    onLedger(3600);
+    const r = await statusOf(HASH, statusDeps(harness(), true));
+    expect(r.transitions[0].note).toBe(TRANSITION_NOTES.notWatching);
+    expect(r.transitionsComplete).toBe(false);
+  });
+
+  it("still says so in read-only mode, where nothing will pick it up", async () => {
+    onLedger(8);
+    const r = await statusOf(HASH, statusDeps(harness(), false));
+    expect(r.transitions[0].note).toBe(TRANSITION_NOTES.notWatching);
+    expect(r.transitionsComplete).toBe(false);
   });
 });
 
