@@ -259,13 +259,15 @@ holds an EVM key.**
 | execute | [`0x4527b740…5022`](https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022) |
 | XRPL payout | [`F7858109…9ECD`](https://testnet.xrpl.org/transactions/F7858109B0AD251D1BB44227AAB73E10F4651587FA30022278AA497A485E9ECD) |
 | result | one 10.0 FXRP lot burned (account 19.1 → 9.1); 9.948010 XRP delivered on XRPL |
-| latency | **148 s** from XRPL submit to XRP delivered on XRPL: 127 s to the execute (100 s of it attestation), then the agent paid 21 s later |
+| latency | in this run, **148 s** from XRPL submit to XRP delivered on XRPL: 127 s to the execute (100 s of it attestation), then the agent paid 21 s later |
 | Flare confirms the payout | 297 s after submit, block 35694411 — a separate measurement, see below |
 | trace | [`cash-out-trace.json`](fixtures/measurements/cash-out-trace.json) |
 
 Three clocks run through this, and an earlier version of this section conflated them:
 
-- **148 s** — XRPL submit to XRP arriving on XRPL. What the user waits.
+- **148 s** — XRPL submit to XRP arriving on XRPL, in this run. What the user waited. A second
+  live cash-out, the demo dry run of 2026-09-23, took 18.2 minutes from XRPL ledger close to payout
+  close, because its agent paid 16.2 minutes after the execute. The time is the agent's.
 - **297 s** — XRPL submit to Flare *confirming* the payout. The agent can only confirm after proving
   its own XRPL payment through FDC, which is another voting round after the XRP has arrived.
 - **321 s** — when the redemption tracker, polling every 15 s, *noticed* that confirmation. A

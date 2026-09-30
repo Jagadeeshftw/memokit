@@ -1,7 +1,7 @@
 # memokit
 
-**memokit executes XRPL-originated calls on assets a Flare account already holds. There is no
-FAssets mint in the path, no Flare-assigned destination tag, and no wallet registration.**
+**memokit executes XRPL-originated calls on assets a Flare account already holds. memokit never
+mints FXRP to do it, there is no Flare-assigned destination tag, and no wallet registration.**
 
 You sign one XRPL Payment. Its memo is either a 42-byte commitment to what your Flare account should
 do, or the instruction itself, inline.
@@ -125,11 +125,21 @@ on XRPL Testnet. Start and end on the XRP Ledger, no EVM key at any point.
 | execute | [`0x4527b740…5022`](https://coston2-explorer.flare.network/tx/0x4527b740567a534f15452b65215304d2bdafdcdd216fdc9db01682eb2d105022) |
 | XRPL payout | [`F7858109…9ECD`](https://testnet.xrpl.org/transactions/F7858109B0AD251D1BB44227AAB73E10F4651587FA30022278AA497A485E9ECD) |
 | result | one 10.0 FXRP lot burned on Flare (account 19.1 → 9.1); 9.948010 XRP delivered on XRPL |
-| latency | **148 s** from XRPL submit to XRP delivered on XRPL, 21 s after the execute |
+| latency | in this run, **148 s** from XRPL submit to XRP delivered on XRPL, 21 s after the execute |
+| supply | fell **9.998 FTestXRP** across the execute block: 10.0 burned, 0.002 minted by FAssets to the agent's pool |
 | trace | [`cash-out-trace.json`](fixtures/measurements/cash-out-trace.json) |
 
-Two different clocks, and they measure different things. **148 s** is what the user waits: from
-signing the XRPL payment to XRP arriving on XRPL. **297 s** is when Flare *confirmed* the agent's
+A cash-out is not "no mint". The FXRP is burned, and FAssets' redemption mints itself a pool fee
+in the same transaction, so total supply falls by the redeemed lot less that fee. memokit mints
+nothing, but "nothing was minted" must never be said of a cash-out.
+
+**How long the XRP takes depends on the FAssets agent, not on memokit.** Two live cash-outs so far,
+measured from the XRPL payment's ledger close to the payout's ledger close: **141 s** in this run,
+and **18.2 minutes** (1,090 s) in the demo dry run of 2026-09-23. From the execute to the payout
+that is 22 s and 16.2 minutes. Both agents paid on time.
+
+Two different clocks, and they measure different things. In this run, **148 s** is what the user
+waited: from signing the XRPL payment to XRP arriving on XRPL. **297 s** is when Flare *confirmed* the agent's
 payout (block 35694411), which the agent can do only after proving its own XRPL payment through
 FDC — another voting round, after the XRP has already arrived. The agent paid 21 s after `redeem`; see
 [PHASE3.md](PHASE3.md) for what happens when one does not, and for why one 10.0 FXRP lot delivers
@@ -352,10 +362,14 @@ Limits, stated rather than left to be discovered:
   of gas, against 1000 wei on Coston2 ([docs/fdc-fees.md](docs/fdc-fees.md)).
 - **Post-conditions are floors only.** An instruction that spends cannot assert its own purpose;
   a cash-out asserts what it left behind instead.
-- **A cash-out is not atomic.** `redeem` creates an obligation that an FAssets *agent*
-  discharges or defaults on. In the live run the agent paid 21 s after `redeem`, and the XRP
-  arrived 148 s after the user signed; Flare only confirmed that payout 297 s after signing,
-  because the agent has to prove it through FDC. On a default the redeemer is paid in collateral on
+- **A cash-out is not atomic, and its timing is the agent's.** `redeem` creates an obligation
+  that an FAssets *agent* discharges or defaults on. Across the two live cash-outs the agent paid
+  22 s and 16.2 minutes after the execute: from XRPL ledger close to payout close, 141 s and 18.2
+  minutes. In the faster run the XRP arrived 148 s after the user signed, and Flare only
+  confirmed that payout 297 s after signing, because the agent has to prove it through FDC.
+- **A cash-out burns FXRP, and FAssets mints itself a fee.** Supply fell 9.998 FTestXRP across the
+  execute block on both live cash-outs. "No mint" holds for the vault-deposit and payout runs,
+  where supply was identical across the execute block, and never for a cash-out. On a default the redeemer is paid in collateral on
   Flare rather than XRP, and somebody has to submit the non-existence proof.
 - **One lot does not deliver one lot.** 10.000000 FXRP produced 9.948010 XRP, through an FAssets
   pool fee and the agent's redemption fee. Quote from the event, not from the lot size.
