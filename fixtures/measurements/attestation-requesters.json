@@ -1,0 +1,90 @@
+{
+ "what": "For each live memokit run, every FdcHub AttestationRequest on Coston2 from 200 blocks before our request to the block the round root was relayed, and how many carried this payment's XRPL transaction id.",
+ "fdcHub": "0x48aC463d7975828989331F4De43341627b9c5f1D",
+ "event": "AttestationRequest(bytes,uint256)",
+ "checked": "2026-09-30",
+ "runs": [
+  {
+   "run": "P1 mock vault",
+   "xrpl": "47ABC62C4D1B955444A6934C3476B2814A3EFAFC6E411C8845F5D0F61B6F2976",
+   "fromBlock": 35630179,
+   "toBlock": 35630433,
+   "requestsInWindow": 56,
+   "forThisPayment": 1,
+   "requester": "0x8848d8578756A1110161eEB32E868Be1415F2cD7"
+  },
+  {
+   "run": "P1 live vault",
+   "xrpl": "11A56DB868A09588C2BBC57E6C957FA080FC78EE42561D26AB1ABBED437753A6",
+   "fromBlock": 35630644,
+   "toBlock": 35630902,
+   "requestsInWindow": 54,
+   "forThisPayment": 1,
+   "requester": "0x8848d8578756A1110161eEB32E868Be1415F2cD7"
+  },
+  {
+   "run": "P2 payout",
+   "xrpl": "3CBD8EC9C22984B2E2CD97C842BBE01C2A2D34E373705F4C81FB56B08A5948C1",
+   "fromBlock": 35633811,
+   "toBlock": 35634045,
+   "requestsInWindow": 48,
+   "forThisPayment": 1,
+   "requester": "0x8848d8578756A1110161eEB32E868Be1415F2cD7"
+  },
+  {
+   "run": "fund migration",
+   "xrpl": "9766BF742AC3208F02EC3C5B4FDF490B048C5349655291B9E2B289706F5F51A8",
+   "fromBlock": 35693939,
+   "toBlock": 35694225,
+   "requestsInWindow": 46,
+   "forThisPayment": 1,
+   "requester": "0x8848d8578756A1110161eEB32E868Be1415F2cD7"
+  },
+  {
+   "run": "P3 cash-out",
+   "xrpl": "A92E0E7CA45E071E641EAD562CFEE04B2C4B839B4BF13A914B19D17B190C3E47",
+   "fromBlock": 35694073,
+   "toBlock": 35694320,
+   "requestsInWindow": 41,
+   "forThisPayment": 1,
+   "requester": "0x8848d8578756A1110161eEB32E868Be1415F2cD7"
+  },
+  {
+   "run": "P4 QR, local executor",
+   "xrpl": "62A583F332DAADDC5BE97FCFEA099B54E97E99989A8BE2267352F3467AE8FD4A",
+   "fromBlock": 35695301,
+   "toBlock": 35695552,
+   "requestsInWindow": 47,
+   "forThisPayment": 1,
+   "requester": "0x8848d8578756A1110161eEB32E868Be1415F2cD7"
+  },
+  {
+   "run": "P4 under load",
+   "xrpl": "D5EB789CE01C4C79CCBA5333CC6338950DD07EA2EBC06AF4C018BD769B704F4E",
+   "fromBlock": 35703121,
+   "toBlock": 35703355,
+   "requestsInWindow": 38,
+   "forThisPayment": 1,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
+  },
+  {
+   "run": "P4 deployed executor",
+   "xrpl": "12EC49C99940F9F91F70FE1EA3996432890CEF2D183A6DEA86208F09FE3E6894",
+   "fromBlock": 35704210,
+   "toBlock": 35704475,
+   "requestsInWindow": 37,
+   "forThisPayment": 1,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
+  },
+  {
+   "run": "demo dry-run cash-out",
+   "xrpl": "4D9F2AD97010C8E4DC20FCC570EEAD797DF7E914D3E275CD0336CC1BEF5A58EF",
+   "fromBlock": 35745028,
+   "toBlock": 35745263,
+   "requestsInWindow": 42,
+   "forThisPayment": 1,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
+  }
+ ],
+ "result": "Nine of nine: exactly one request per payment, sent by the relayer that executed it. Nobody else requested the same attestation."
+}

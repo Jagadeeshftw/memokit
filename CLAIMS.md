@@ -26,7 +26,8 @@ audit found an error, the README has been corrected and the row says what change
 | **Open** | Not done, or not verified. | — |
 
 Test suites as of this audit: **145** Solidity (`forge test`), **24** fork (`npm run test:fork`),
-**152** SDK and **63** executor (`npm test`).
+**152** SDK and **66** executor (`npm test`). All four re-run 2026-09-30; the fork suite passed five
+runs in a row that day.
 
 ## Easy to overstate
 
@@ -115,7 +116,7 @@ the right-hand column or something no stronger.
 | An executor cannot run a `0xFC` instruction without its preimage | **Tested** + **Live** | `execute(proof, data)` takes it as an argument; the Phase 4 service held ten commit-memo payments it could not run |
 | A cash-out built by `sign --cash-out`, executed by the deployed executor, paid out in XRP | **Live, once** | XRPL in [`4D9F2AD9…`](https://testnet.xrpl.org/transactions/4D9F2AD97010C8E4DC20FCC570EEAD797DF7E914D3E275CD0336CC1BEF5A58EF) → execute [`0x5da0d80a…`](https://coston2-explorer.flare.network/tx/0x5da0d80a47718e905daeb59c5cdf93b214b251bddbd1302d208404dd1e6caeae) from the deployed key → XRPL payout [`0ECB1546…`](https://testnet.xrpl.org/transactions/0ECB1546CA1820CD8DF056E23E77BBDCB5FE6A53980ECFAED59B44F34538821C), 9.948010 XRP, 16 min after the execute. **Signed by the `sign-with-seed` stand-in, not a wallet.** `demo-dry-run-cash-out.json`. |
 | Simulation before every submission | **Tested** | `executor/test/pipeline.test.ts` ("simulates before submitting, every time") |
-| The executor service avoids paying for duplicate attestations | **Open — deferred to mainnet work, deliberately.** | It reuses only a proof that has already *finalised*, which never happens for a payment it sees live, and it does not read `AttestationRequest` events. **Why deferred:** it saves nothing today — one executor, and in all seven live memokit runs nobody else requested the same attestation — and doing it properly means holding the request until late in the voting round, which risks adding a round (~90 s). **What deferring costs:** nothing on Coston2 (~0.054 C2FLR per duplicate); on mainnet, ~20.05 FLR per duplicate request, so up to (N−1) × 20 FLR per instruction once N executors watch the same address. Noted at the decision point in `executor/src/service/pipeline.ts`. |
+| The executor service avoids paying for duplicate attestations | **Open — deferred to mainnet work, deliberately.** | It reuses only a proof that has already *finalised*, which never happens for a payment it sees live, and it does not read `AttestationRequest` events. **Why deferred:** it saves nothing today — one executor, and in all nine live memokit runs nobody else requested the same attestation (one request per payment, from the relayer that executed it: [`attestation-requesters.json`](fixtures/measurements/attestation-requesters.json), checked 2026-09-30) — and doing it properly means holding the request until late in the voting round, which risks adding a round (~90 s). **What deferring costs:** nothing on Coston2 (~0.054 C2FLR per duplicate); on mainnet, ~20.05 FLR per duplicate request, so up to (N−1) × 20 FLR per instruction once N executors watch the same address. Noted at the decision point in `executor/src/service/pipeline.ts`. |
 
 ### Safety machinery
 
