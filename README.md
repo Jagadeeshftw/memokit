@@ -19,15 +19,16 @@ for the fee the instruction committed to — so the user needs no Flare key and 
 running at https://memokit-executor-production.up.railway.app;
 [executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running another.
 
-> **Latency is about two and a half minutes, and that is FDC's round cadence, not this code.**
-> XRPL submit to executed call took 152 s and 162 s in Phase 1, 118 s in Phase 2, and 127 s and
-> 162 s in Phase 3. Through the open executor in Phase 4 it was 165 s and 167 s, timed from the
-> XRPL ledger close rather than from submit, so those two read a few seconds low; they are slower
-> because the service polls the ledger every 15 s and the DA Layer every 30 s rather than waiting
-> on the payment. Across the runs, 80 to 90% of the time
-> is one leg, waiting for the FDC voting round to close and the Data Availability Layer to serve the
-> proof. Nothing here can shorten that leg, so instructions that depend on a price carry a
-> deadline (see [Deadlines](#deadlines)).
+> **Latency is about two and a half minutes, and most of it is FDC's round cadence, not this code.**
+> Across all twelve live runs to date, from the XRPL payment's ledger close to the executed call on
+> Flare: **114–174 s, median 151 s**. The largest part is the FDC leg — from the attestation request
+> to Flare publishing that voting round's Merkle root — at **46–86% of the total, median 73%**. The
+> rest is seeing the payment and requesting (8–23 s), then fetching the proof and submitting
+> (11–53 s); the open executor sits high in that last range because it polls rather than waits.
+> Every figure is from chain timestamps, and every run is listed in
+> [`latency-all-runs.json`](fixtures/measurements/latency-all-runs.json). Nothing here can
+> shorten the FDC leg, so instructions that depend on a price carry a deadline (see
+> [Deadlines](#deadlines)).
 
 ## How it works
 
@@ -234,8 +235,8 @@ griefing analysis.
 Attestation takes minutes and markets do not wait, so an instruction that touches a price should
 commit to a deadline and a minimum output in its own calldata. Both are then inside the hash.
 `DEFAULT_DEADLINE_SECONDS` is **900**. It was derived from Phase 1's worst of 162 s, plus one missed
-90 s round, times 3.5. The worst measured since is 173 s from XRPL ledger close (the first FSA
-import, which another relayer delivered), about 180 s from submit; against that, 900 s is still
+90 s round, times 3.5. The worst measured since is 174 s from XRPL ledger close (the fund
+migration), about 180 s from submit; against that, 900 s is still
 about 3.3 times a slow-but-ordinary path. The derivation is next to the constant in
 `sdk/src/deadline.ts`.
 
