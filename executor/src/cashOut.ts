@@ -10,7 +10,8 @@
  *
  * Run: npm run cash-out -w @memokit/executor -- [--lots 1] [--to r... --i-know]
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, mkdirSync } from "node:fs";
+import { newRecordingPath, writeNewRecording } from "./recording.js";
 import { dirname, resolve } from "node:path";
 import { Contract, JsonRpcProvider, Wallet as EvmWallet, formatUnits } from "ethers";
 import { Wallet as XrplWallet, Client as XrplClient } from "xrpl";
@@ -31,7 +32,8 @@ import {
 import { sendMemoPayment } from "@memokit/sdk/xrpl";
 
 const REPO = resolve(import.meta.dirname, "../..");
-const OUT = resolve(REPO, "fixtures/measurements/cash-out-trace.json");
+// A new file per run: the committed cash-out-trace.json is evidence the claim ledger cites.
+const OUT = newRecordingPath(resolve(REPO, "fixtures/measurements"), "cash-out-trace");
 const ASSET_MANAGER = process.env.ASSET_MANAGER ?? "0xc1Ca88b937d0b528842F95d5731ffB586f4fbDFA";
 
 const need = (n: string): string => {
@@ -172,7 +174,7 @@ async function main() {
   legs.total = Math.round((marks[marks.length - 1].at - marks[0].at) / 1000);
 
   mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(
+  writeNewRecording(
     OUT,
     JSON.stringify(
       {

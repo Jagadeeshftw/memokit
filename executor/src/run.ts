@@ -7,7 +7,8 @@
  *
  * Nothing here calls Flare's verifier.
  */
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, mkdirSync } from "node:fs";
+import { newRecordingPath, writeNewRecording } from "./recording.js";
 import { dirname, resolve } from "node:path";
 import { Contract, JsonRpcProvider, Wallet as EvmWallet, type ContractTransactionReceipt } from "ethers";
 import { Wallet as XrplWallet } from "xrpl";
@@ -46,7 +47,7 @@ export interface Built {
 }
 
 export interface Scenario {
-  /** Trace filename: fixtures/measurements/e2e-trace-<label>.json. */
+  /** Trace filename: fixtures/measurements/e2e-trace-<label>-<UTC time>.json, a new file per run. */
   label: string;
   note: string;
   /** Called once the account and nonce are known. Throw to refuse to send (e.g. unfunded). */
@@ -191,9 +192,10 @@ export async function runScenario(scenario: Scenario): Promise<void> {
     },
   };
 
-  const out = resolve(REPO, `fixtures/measurements/e2e-trace-${process.env.TRACE_LABEL ?? scenario.label}.json`);
+  // A new file per run: the committed e2e traces are evidence the claim ledger cites.
+  const out = newRecordingPath(resolve(REPO, "fixtures/measurements"), `e2e-trace-${process.env.TRACE_LABEL ?? scenario.label}`);
   mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, JSON.stringify(trace, null, 2) + "\n");
+  writeNewRecording(out, JSON.stringify(trace, null, 2) + "\n");
   console.log(`\nwrote ${out}`);
   console.log(`latency: ${JSON.stringify(legs)}`);
 }

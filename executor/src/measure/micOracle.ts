@@ -10,7 +10,8 @@
  *
  * Run: npm run verify:mic -w @memokit/executor
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
+import { newRecordingPath, writeNewRecording } from "../recording.js";
 import { dirname, resolve } from "node:path";
 import { encodeMemo, commitmentOf, type Instruction } from "@memokit/sdk";
 import { ZeroAddress } from "ethers";
@@ -26,7 +27,9 @@ import {
   type XrpPaymentResponse,
 } from "@memokit/sdk/fdc";
 
-const OUT = resolve(import.meta.dirname, "../../../fixtures/xrppayment-oracle.json");
+// A new file per run. The committed fixtures/xrppayment-oracle.json is the reference the SDK tests
+// read and the claim ledger cites; a re-run must not replace it. Promote a new run by hand if needed.
+const OUT = newRecordingPath(resolve(import.meta.dirname, "../../../fixtures/measurements"), "xrppayment-oracle");
 
 /** The DA Layer and verifier return numbers as decimal strings; the ABI coder wants bigint. */
 function toResponse(raw: Record<string, any>): XrpPaymentResponse {
@@ -171,7 +174,7 @@ async function main() {
   }
 
   mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(
+  writeNewRecording(
     OUT,
     JSON.stringify(
       {
