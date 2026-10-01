@@ -55,9 +55,9 @@ curl -s https://memokit-executor-production.up.railway.app/status/95E4B21C2E2BB1
 | `transitionsComplete` | false when the times are observations rather than a record of what this executor did |
 | `note` | present when there is something about the answer not to assume away |
 | `elapsed` | seconds spent in each state; a final state is not counted |
-| `attestation` | the request this executor paid for, and its voting round |
+| `attestation` | the request this executor paid for, and its voting round; `unservedRounds` lists earlier rounds that finalised without serving a proof, each followed by a fresh request |
 | `execution` | the execute's hash and block, and `byUs`: whether this executor sent it |
-| `skipReason` | why the fee policy declined it |
+| `skipReason` | why the fee policy declined it, or why it can never run: `superseded: bound to nonce N, but the account is already at M` |
 | `lastError` | the most recent failure, and the stage it happened at |
 | `validitySecondsRemaining` | seconds left in the proof's 24-hour window; negative once it has closed |
 

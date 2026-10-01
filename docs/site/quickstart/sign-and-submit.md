@@ -135,12 +135,12 @@ same states:
   `curl -s https://memokit-executor-production.up.railway.app/status/$H | grep -E 'skipReason|lastError'`.
   The usual cause is a fee below 0.1 FTestXRP, or a `0xFC` commit memo, which it cannot run without
   the preimage.
-- **It stays `attesting` for many minutes:** FDC did not attest the request. This happened once, on
-  2026-10-01: the round finalised, but the Data Availability Layer never served a proof for that
-  request. The open executor keeps polling the round it paid for and does not request a new
-  attestation, so the instruction waits until its 24-hour window closes. Nothing moves in the
-  meantime. Anyone can request the attestation again and deliver the proof; see
-  [Rescue](/docs/concepts/rescue).
+- **It stays `attesting` for more than about five minutes:** FDC may have finalised the round without
+  attesting the request. This happened once, on 2026-10-01. The open executor now notices: two
+  minutes after the round finalises with no proof served, it requests the attestation again in a later
+  round, up to twice, and the status answer lists the rounds that went unserved under
+  `attestation.unservedRounds`. If every round goes unserved, it parks the instruction as `stuck` and
+  stops paying. Nothing moves in the meantime. See [Rescue](/docs/concepts/rescue).
 - **It ends `failed` or `stuck`:** read `lastError` the same way. `InvalidNonce` means the instruction
   was built before another one executed: build it again and sign the new one.
 - **The account holds too little:** `npm run sign` refuses before building. Fund it first.

@@ -1,6 +1,6 @@
 ---
 title: "Rescue: stuck instructions and the classifier"
-description: "Stuck instructions, the seven states, and the rescue opcodes."
+description: "Stuck instructions, the eight states, and the rescue opcodes."
 ---
 
 An instruction can stop in four places between the XRPL payment and the execute, and from outside
@@ -10,10 +10,10 @@ which one it is, what is lost, and what fixes it.
 **The account's assets are never at risk in a stalled state.** A stalled instruction has not executed,
 so nothing moved.
 
-## The seven states
+## The eight states
 
 `classifyPayments` in the SDK sorts every payment an owner sent to a receiving address into one of
-seven states. The loss in each is the classifier's own wording.
+eight states. The loss in each is the classifier's own wording.
 
 | State | Final | What is lost |
 |---|---|---|
@@ -24,9 +24,15 @@ seven states. The loss in each is the classifier's own wording.
 | `execution-failed` | no | Nothing on chain: a failed execution reverts, so the transaction id is not consumed, the nonce did not move, and the same proof can be delivered again once the cause is gone. Only gas was spent, by the executor who tried. |
 | `expired` | yes | Carrier payment and the attestation fee, if one was paid. The instruction can never run. The account's assets are untouched: re-sign the same instruction in a fresh payment. |
 | `not-an-instruction` | yes | Carrier payment. memokit will never act on this payment; it carries no memo it understands. |
+| `superseded` | yes | Carrier payment, and the attestation fee if one was paid. The account's nonce moved past this instruction's, so it can never run. The account's assets are untouched: re-sign it at the current nonce if it is still wanted. |
 
 The status API publishes the same states in shorter words: `seen` or `attesting` for
-awaiting-attestation, `proved`, `failed`, `stuck` for expired, `rescued` for retired, and `skipped`.
+awaiting-attestation, `proved`, `failed`, `stuck` for expired or superseded, `rescued` for retired,
+and `skipped`.
+
+`superseded` is checked right after `executed`. Whether a proof exists or not, an instruction whose
+nonce the account has already passed can only produce an execute that fails with `InvalidNonce`, so
+the classifier never suggests paying for its attestation.
 See [The status API](/docs/executor/status-api).
 
 ## Classify an owner's payments
@@ -45,12 +51,11 @@ EXECUTED               55EB7D1325058E258ACA21113E4DF26AE1A77E377D02FB04EDB32F8D6
   ledger 21177282  the transaction id is marked consumed on chain
   loss if ignored: Carrier payment only. The instruction did what it said.
 
-AWAITING-ATTESTATION   231B79178A50B5E828744E08E0B77CF110E9FE8D3CBCC3755D16BF13E839276A
-  ledger 21177044  no proof available from the DA Layer yet
+SUPERSEDED             231B79178A50B5E828744E08E0B77CF110E9FE8D3CBCC3755D16BF13E839276A
+  ledger 21177044  instruction is bound to nonce 11 but the account is already at 12
   instruction nonce 11, account at 12
-  proof window: 24h left
-  loss if ignored: Nothing yet. Anyone can still request the attestation; the window has not closed.
-  -> request-attestation: Request the attestation and wait one FDC round (~150 s). No XRPL payment needed.
+  loss if ignored: Carrier payment, and the attestation fee if one was paid. The account's nonce moved past this instruction's, so it can never run. The account's assets are untouched -- re-sign it at the current nonce if it is still wanted.
+  -> nothing-possible: The account is at nonce 12 and this instruction is bound to 11. Nonces only move forward, so it can never execute. Do not pay for its attestation; re-sign it at the current nonce if it is still wanted.
 
 EXECUTED               95E4B21C2E2BB15222F553E62081228F918BF76DEA61E42A02C5B2EDC5B5B051
   ledger 21176774  the transaction id is marked consumed on chain
@@ -58,11 +63,9 @@ EXECUTED               95E4B21C2E2BB15222F553E62081228F918BF76DEA61E42A02C5B2EDC
   loss if ignored: Carrier payment only. The instruction did what it said.
 ```
 
-Read the middle entry closely. It is the instruction FDC did not attest (see below), and its nonce, 11,
-is behind the account's, 12: a later instruction used that nonce first. So requesting the attestation
-would now only produce an execute that fails with `InvalidNonce`. The classifier prints both numbers
-but does not yet draw that conclusion. When the instruction's nonce is below the account's, treat it as
-superseded: nothing more to do, and nothing was lost but the carrier.
+The middle entry is the instruction FDC did not attest in its round on 2026-10-01. A later
+instruction then used its nonce, 11, so it is `superseded`: nothing more to do, and nothing was lost
+but the carrier.
 
 The classifier checks only the current diamond. A payment that executed on a retired diamond shows as
 `EXPIRED` here.
@@ -89,9 +92,11 @@ executes, the stuck one can only fail with `InvalidNonce`.
 ## Which fix for which state
 
 - **`awaiting-attestation`, for longer than a few minutes:** nobody requested the attestation, or FDC did
-  not attest it. Anyone can request it again and deliver the proof, within 24 hours of the payment.
-  The open executor does not currently re-request on its own. This happened once live, on 2026-10-01;
-  the [claim ledger](/docs/evidence/claim-ledger) records it.
+  not attest it in its round. Anyone can request it again and deliver the proof, within 24 hours of the
+  payment. The open executor does this itself when a round it paid for finalises unserved; see
+  [Attestation](/docs/concepts/attestation).
+- **`superseded`:** nothing to do. If the instruction is still wanted, sign it again at the account's
+  current nonce.
 - **`attested-not-executed`:** the proof exists. Deliver it: anyone can, including the owner. For a
   `0xFC` commit memo, whoever delivers also needs the payload.
 - **`execution-failed`:** read why. If the cause will go away, such as a balance to top up, deliver the

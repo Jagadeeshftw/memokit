@@ -37,8 +37,9 @@ npm run verify:mic -w @memokit/executor
 
 It sends a small XRPL Testnet payment from `XRPL_SEED`, asks Flare's verifier for that payment's request
 and MIC, and compares them with the SDK's own. It ends with
-`VERIFIER-FREE PATH CONFIRMED: request and MIC computed from ledger data alone.` It also overwrites
-`fixtures/xrppayment-oracle.json` with the new run; `git checkout` that file if you are not updating it.
+`VERIFIER-FREE PATH CONFIRMED: request and MIC computed from ledger data alone.` It records the run in a
+new, timestamped file, `fixtures/measurements/xrppayment-oracle-<time>.json`, and leaves the committed
+`fixtures/xrppayment-oracle.json` that the tests read untouched.
 
 ## The voting round
 
@@ -85,7 +86,13 @@ executor there is nothing to save.
 ## When FDC does not attest
 
 A finalised round can leave a request unattested. It happened once, on 2026-10-01: the round's root was
-published, and the DA Layer never served a proof for that request. A proof can still be had by
-requesting the attestation again, in a later round. The open executor does not do that yet; it is
-recorded as Open in the [claim ledger](/docs/evidence/claim-ledger). See
-[Rescue](/docs/concepts/rescue).
+published, and the DA Layer never served a proof for that request in that round or any neighbour.
+Polling the same round again can never succeed, but a proof can still be had by requesting the
+attestation again, in a later round.
+
+The open executor does that. It reads each round's finalisation from Flare's Relay contract. Two minutes
+after a round finalises with no proof served for its request, which is well past ordinary DA lag, it
+checks the instruction has not executed elsewhere and can still run, then requests the attestation
+again. It does so at most twice by default, and logs each one. If those rounds go unserved too, it
+parks the instruction as `stuck` and stops paying. The [claim ledger](/docs/evidence/claim-ledger) has
+the live case and the tests. See [Rescue](/docs/concepts/rescue).

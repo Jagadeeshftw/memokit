@@ -13,8 +13,10 @@ how it makes those decisions. [Run your own](/docs/executor/run-your-own) covers
    registered, every 15 seconds by default.
 2. **Decides.** It reads the memo's opcode and, for an instruction it can see, the fee. The fee policy,
    below, says yes or no.
-3. **Requests the attestation**, unless a proof already exists.
-4. **Waits for the proof** from the DA Layer.
+3. **Requests the attestation**, unless a proof already exists, or the account's nonce has already
+   passed the instruction's.
+4. **Waits for the proof** from the DA Layer. If the round finalises and the proof is never served, it
+   requests the attestation again in a later round, a bounded number of times.
 5. **Simulates** `execute` with the proof. Only if that passes does it
 6. **Submit**, and record the outcome.
 
@@ -42,6 +44,8 @@ Other decisions the policy makes:
 | `RELAY_RESCUES` | `true` | Relay `0xE0`, `0xE1`, `0xE2` and `0xFB` rescue memos, which pay nothing. It costs a little gas; it is how owners unstick their own queues. |
 | `UNKNOWN_PAYLOAD` | `wait` | What to do with a `0xFC` commit memo whose payload it does not have: keep watching, or forget it. |
 | `PAYLOADS_FILE` | none | A JSON map of transaction id to payload, for commit memos. Re-read on every lookup, so a payload can be added without a restart. |
+| `ATTESTATION_RETRIES` | `2` | How many times to request an attestation again when its round finalises and no proof is ever served for it. |
+| `UNSERVED_GRACE_SECONDS` | `120` | How long after such a round finalises to keep asking the DA Layer, for ordinary lag, before requesting again. |
 
 ### The one thing an executor cannot do
 
@@ -102,9 +106,9 @@ Its first line is a warning that the environment holds secrets an executor does 
 because `.env` also holds `XRPL_SEED`. A real executor should run with its own Coston2 key and nothing
 else; the deployed one refuses to start otherwise.
 
-One thing the dry run shows that the executor does not yet handle: an instruction whose nonce another
-instruction has already used can only fail with `InvalidNonce`, but the executor would still pay for
-its attestation. The simulation stops it before any execute is sent.
+An instruction whose nonce the account has already passed can never execute. The executor recognises
+one before it spends anything: such an instruction is parked as `stuck`, with the reason
+`superseded: bound to nonce N, but the account is already at M`, instead of being attested.
 
 ## What it spends
 

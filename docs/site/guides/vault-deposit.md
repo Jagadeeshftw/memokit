@@ -115,5 +115,6 @@ FTestXRP in that block, the two numbers are identical, as they were on the vault
 - **It ends `failed` with the post-condition named in `lastError`:** the vault's rate moved by more
   than 1% between signing and execution. Nothing moved, and the same proof can be delivered again,
   but the rate will not move back on its own. Build a new instruction.
-- **It stays `attesting` for many minutes:** FDC did not attest the request; see
+- **It stays `attesting` for more than about five minutes:** FDC may not have attested the request in
+  that round; the executor requests it again on its own. See
   [Sign and submit](/docs/quickstart/sign-and-submit) and [Rescue](/docs/concepts/rescue).

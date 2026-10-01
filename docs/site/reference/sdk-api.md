@@ -133,7 +133,7 @@ See [Post-conditions](/docs/concepts/post-conditions) and [Price protection](/do
 
 | Export | |
 |---|---|
-| `classifyPayments(payments, options)` | the seven-state classifier; see [Rescue](/docs/concepts/rescue) |
+| `classifyPayments(payments, options)` | the eight-state classifier; see [Rescue](/docs/concepts/rescue) |
 | `RESCUE_STATES` | each state's `final` flag and what is lost in it |
 | `fetchIncomingPayments({ network, receivingAddress, limit?, sinceLedger? })` | the payments to classify, from the XRPL ledger |
 | `buildRetireMemo(targetTransactionId)` | a `0xE0` memo |

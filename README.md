@@ -264,7 +264,7 @@ git clone --recurse-submodules <repo-url>
 npm install
 forge build
 forge test              # 145 Solidity tests
-npm test                # 152 SDK + 76 executor tests
+npm test                # 157 SDK + 88 executor tests
 npm run test:fork       # 24 fork tests: needs network and ffi (fork profile only)
 ```
 
@@ -333,7 +333,7 @@ so a lost race costs the attestation fee rather than the gas of a reverting tran
 genuine failure is never mistaken for a busy market. See [PHASE4.md](PHASE4.md).
 
 **Rescue.** An instruction can stall in four places and they all look identical from outside.
-`classifyPayments` sorts every payment an owner sent into seven states and says what is lost in
+`classifyPayments` sorts every payment an owner sent into eight states and says what is lost in
 each — the carrier payment, the attestation fee and the instruction are three different things.
 **The account's assets are never at risk in any stalled state**, because they never moved. See
 [PHASE3.md](PHASE3.md) for the table and for `0xFB`.
