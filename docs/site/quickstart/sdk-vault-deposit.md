@@ -19,7 +19,7 @@ You need:
   - `PRIVATE_KEY`: a Coston2 key with a few C2FLR, from https://faucet.flare.network/coston2. It pays
     the attestation fee (1000 wei) and the execute gas.
   - `XRPL_SEED`: an XRPL Testnet wallet with a few XRP, from
-    https://faucet.altnet.rippletest.net/accounts. Its address owns the memokit account.
+    the XRPL Testnet faucet on [XRPL's faucets page](https://xrpl.org/resources/dev-tools/xrp-faucets). Its address owns the memokit account.
 - The memokit account for that XRPL address holding at least 1.0 FTestXRP. If it holds none, follow
   [Fund an account with FTestXRP](/docs/guides/fund-an-account) first.
 

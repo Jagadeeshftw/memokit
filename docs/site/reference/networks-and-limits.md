@@ -13,7 +13,7 @@ There is no mainnet deployment and no mainnet transaction.
 | Chain id | 114 | |
 | RPC | `https://coston2-api.flare.network/ext/C/rpc` | JSON-RPC `https://s.altnet.rippletest.net:51234/`, WebSocket `wss://s.altnet.rippletest.net:51233` |
 | Explorer | https://coston2-explorer.flare.network | https://testnet.xrpl.org |
-| Faucet | https://faucet.flare.network/coston2 | https://faucet.altnet.rippletest.net/accounts |
+| Faucet | https://faucet.flare.network/coston2 | [XRPL's faucets page](https://xrpl.org/resources/dev-tools/xrp-faucets), Testnet |
 | FDC source id | | `testXRP` |
 | DA Layer | `https://ctn2-data-availability.flare.network` | |
 

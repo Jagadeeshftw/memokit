@@ -4,8 +4,10 @@ description: "GET /healthz, /instructions and /status/{xrplHash}."
 ---
 
 Every executor serves a small public HTTP API: its own health, the instructions it has seen, and where
-any one instruction is. The deployed executor's API is at
-https://memokit-executor-production.up.railway.app, and https://memokit.0xo.in/status is a page over it.
+any one instruction is. The deployed executor's routes are under
+`https://memokit-executor-production.up.railway.app`: start with
+https://memokit-executor-production.up.railway.app/healthz. The origin itself serves nothing, so it
+answers 404. https://memokit.0xo.in/status is a page over these routes.
 
 It is **one executor's view, not the network's**. The state of an instruction is read from the chain,
 so it is the same whoever you ask. The timestamps are what this executor observed.

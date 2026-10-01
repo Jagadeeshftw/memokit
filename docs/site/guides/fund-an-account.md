@@ -23,7 +23,8 @@ from your XRPL wallet.
 - A `.env` at the repo root, copied from `.env.example`, with:
   - `PRIVATE_KEY`: a Coston2 key with at least 5 C2FLR, from https://faucet.flare.network/coston2;
   - `XRPL_SEED`: an XRPL Testnet wallet with at least 12 XRP, from
-    https://faucet.altnet.rippletest.net/accounts. Its address owns the memokit account being funded.
+    the XRPL Testnet faucet on [XRPL's faucets page](https://xrpl.org/resources/dev-tools/xrp-faucets). Its address owns the memokit account being
+    funded.
 
 ## 1. Set up your shell
 

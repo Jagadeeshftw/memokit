@@ -70,7 +70,8 @@ The same proof can be delivered again once the cause is gone. See
 
 Either a script you run, holding a Coston2 key that pays the attestation fee and the gas, or an
 executor that watches the receiving address and does both for the fee the instruction offers. One
-open executor is deployed at https://memokit-executor-production.up.railway.app. With it, the owner
+open executor is deployed; its health is at https://memokit-executor-production.up.railway.app/healthz,
+and [The status API](/docs/executor/status-api) lists its routes. With it, the owner
 signs one XRPL payment and nothing else.
 
 ## How long it takes

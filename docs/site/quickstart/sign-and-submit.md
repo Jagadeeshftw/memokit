@@ -21,7 +21,7 @@ The example deposits 0.5 FTestXRP, which the account already holds, into a vault
 
 - Node 20 or later, and a built clone of the memokit repo (`npm install && npm run build`).
 - A `.env` at the repo root with `XRPL_SEED` set: an XRPL Testnet wallet with a few XRP, from
-  https://faucet.altnet.rippletest.net/accounts. No Flare key is needed for this page.
+  the XRPL Testnet faucet on [XRPL's faucets page](https://xrpl.org/resources/dev-tools/xrp-faucets). No Flare key is needed for this page.
 - The memokit account for that address holding at least 0.6 FTestXRP: 0.5 to deposit and 0.1 for the
   executor's fee. See [Fund an account with FTestXRP](/docs/guides/fund-an-account).
 

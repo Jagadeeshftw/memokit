@@ -41,8 +41,9 @@ is paid. The fee is paid only if every call succeeds.
 
 memokit is on **Coston2 and XRPL Testnet only**. There is no mainnet deployment and no mainnet
 transaction. The current deployment's diamond is {{deployment.diamond}}, and its XRPL receiving
-address is {{deployment.receivingAddress}}. An open executor that anyone can inspect runs at
-https://memokit-executor-production.up.railway.app.
+address is {{deployment.receivingAddress}}. An open executor that anyone can inspect is deployed; its health is at
+https://memokit-executor-production.up.railway.app/healthz, and its other routes are on
+[The status API](/docs/executor/status-api).
 
 ## Where to go next
 
