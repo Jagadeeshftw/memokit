@@ -178,12 +178,53 @@ describe("state: execution-failed", () => {
    * equality, so an instruction the account has already passed can never run. Saying so is
    * more useful than proposing a rescue that cannot work.
    */
-  it("admits when an instruction is behind the account and cannot be rescued", async () => {
+});
+
+describe("state: superseded", () => {
+  it("is final when the account's nonce has passed the instruction's, even with a proof", async () => {
     const [r] = await classify([payment(HASH_A, inlineMemo(1n))], { accountNonce: 4n }, true);
-    expect(r.state).toBe("execution-failed");
+    expect(r.state).toBe("superseded");
+    expect(RESCUE_STATES.superseded.final).toBe(true);
     expect(r.rescue?.action).toBe("nothing-possible");
     expect(r.rescue?.memo).toBeNull();
     expect(r.rescue?.summary).toMatch(/only move forward/i);
+  });
+
+  it("never suggests paying for the attestation of an instruction that cannot run (231B7917)", async () => {
+    // The live case of 2026-10-01: FDC never served a proof for a deposit bound to nonce 11,
+    // and a later instruction then used nonce 11. The classifier used to call it
+    // awaiting-attestation and advise requesting one.
+    const [r] = await classify([payment(HASH_A, inlineMemo(11n))], { accountNonce: 12n }, false);
+    expect(r.state).toBe("superseded");
+    expect(r.rescue?.action).not.toBe("request-attestation");
+    expect(r.rescue?.summary).toMatch(/do not pay for its attestation/i);
+    expect(r.reason).toMatch(/nonce 11.*already at 12/);
+  });
+
+  it("is still beaten by consumption: an executed instruction is executed, not superseded", async () => {
+    const [r] = await classify([payment(HASH_A, inlineMemo(1n))], { accountNonce: 4n, consumed: new Set([ID_A]) });
+    expect(r.state).toBe("executed");
+  });
+
+  it("does not apply to an instruction at the account's current nonce or ahead of it", async () => {
+    const [at] = await classify([payment(HASH_A, inlineMemo(4n))], { accountNonce: 4n });
+    expect(at.state).toBe("awaiting-attestation");
+    const [ahead] = await classify([payment(HASH_A, inlineMemo(6n))], { accountNonce: 4n }, true);
+    expect(ahead.state).toBe("execution-failed");
+  });
+
+  it("cannot be seen through a commit memo without its preimage, and says nothing it cannot know", async () => {
+    const [r] = await classify([payment(HASH_A, commitMemo(1n))], { accountNonce: 4n });
+    expect(r.state).toBe("awaiting-attestation");
+  });
+});
+
+describe("the attestation hint", () => {
+  it("does not call an FDC round 150 s: a round is about 90 s, 150 s is the whole path", async () => {
+    const [r] = await classify([payment(HASH_A, inlineMemo(0n))]);
+    expect(r.rescue?.action).toBe("request-attestation");
+    expect(r.rescue?.summary).toMatch(/about 90 s apart/);
+    expect(r.rescue?.summary).not.toMatch(/one FDC round \(~150 s\)/);
   });
 });
 
@@ -243,6 +284,7 @@ describe("every state is accounted for", () => {
     "execution-failed",
     "expired",
     "not-an-instruction",
+    "superseded",
   ];
 
   it("has a documented loss for each", () => {

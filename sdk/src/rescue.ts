@@ -31,7 +31,13 @@ export type InstructionState =
   /** The proof validity window has passed. Nothing can deliver it now. Final. */
   | "expired"
   /** Not a memokit instruction: no memo, or a memo this codec does not recognise. */
-  | "not-an-instruction";
+  | "not-an-instruction"
+  /**
+   * The account's nonce has moved past this instruction's -- a later instruction used it, or a
+   * 0xE1/0xFB rescue stepped over it -- so it can never execute. Final. Paying for its
+   * attestation would buy a proof whose only use is a revert.
+   */
+  | "superseded";
 
 export interface ClassifiedPayment {
   xrplHash: string;
@@ -114,6 +120,10 @@ export const RESCUE_STATES: Record<InstructionState, { final: boolean; loss: str
   "not-an-instruction": {
     final: true,
     loss: "Carrier payment. memokit will never act on this payment; it carries no memo it understands.",
+  },
+  superseded: {
+    final: true,
+    loss: "Carrier payment, and the attestation fee if one was paid. The account's nonce moved past this instruction's, so it can never run. The account's assets are untouched -- re-sign it at the current nonce if it is still wanted.",
   },
 };
 
@@ -318,6 +328,19 @@ async function classifyOne(
     };
   }
 
+  // Before the window and before any proof: an instruction whose nonce the account has already
+  // passed can never run, whatever else is true of it, so nothing should be spent on it.
+  if (nonce !== null && nonce < ctx.accountNonce) {
+    return {
+      ...base,
+      decodedMemo,
+      nonce,
+      state: "superseded",
+      reason: `instruction is bound to nonce ${nonce} but the account is already at ${ctx.accountNonce}`,
+      rescue: nonceRescue(nonce, ctx.accountNonce),
+    };
+  }
+
   if (validitySecondsRemaining <= 0) {
     return {
       ...base,
@@ -341,7 +364,7 @@ async function classifyOne(
         action: "request-attestation",
         memo: null,
         summary:
-          "Request the attestation and wait one FDC round (~150 s). No XRPL payment needed.",
+          "Request the attestation and wait for its FDC voting round to finalise: rounds are about 90 s apart, and the whole path from payment to execute takes about 150 s. No XRPL payment needed.",
         loss: RESCUE_STATES["awaiting-attestation"].loss,
       },
     };
@@ -388,8 +411,8 @@ function nonceRescue(instructionNonce: bigint, accountNonce: bigint): RescuePlan
     return {
       action: "nothing-possible",
       memo: null,
-      summary: `The account is at nonce ${accountNonce} and this instruction is bound to ${instructionNonce}. Nonces only move forward, so it can never execute. Re-sign it at the current nonce.`,
-      loss: RESCUE_STATES["expired"].loss,
+      summary: `The account is at nonce ${accountNonce} and this instruction is bound to ${instructionNonce}. Nonces only move forward, so it can never execute. Do not pay for its attestation; re-sign it at the current nonce if it is still wanted.`,
+      loss: RESCUE_STATES.superseded.loss,
     };
   }
   return {

@@ -41,7 +41,7 @@ const { payload, memo } = prepareInstruction({
   ],
 });
 
-// 2. One XRPL payment carrying the 42-byte memo, then FDC attests it (~150 s, one FDC round).
+// 2. One XRPL payment carrying the 42-byte memo, then FDC attests it in its next voting round (~90 s).
 const sent = await sendMemoPayment({ network: COSTON2, wallet: owner, destination: RECEIVING, drops: "1000000", memo });
 const request = await requestAttestation({ signer: relayer, xrplHash: sent.hash, network: COSTON2 });
 const { proof } = await waitForProof({ request, network: COSTON2 });
@@ -51,9 +51,10 @@ const receipt = await submit({ signer: relayer, controller: DIAMOND, proof, payl
 console.log("executed", receipt.hash);
 ```
 
-Expect about **150 s** from the XRPL payment to `execute`. That is the FDC voting round finalising
-and reaching the Data Availability Layer, a property of the protocol's cadence rather than of this
-library; polling faster does not shorten it.
+Expect about **150 s** from the XRPL payment to `execute`. Most of it is the FDC voting round the
+request lands in (rounds are about 90 s apart) finalising, and the proof reaching the Data
+Availability Layer: a property of the protocol's cadence rather than of this library. Polling faster
+does not shorten it.
 
 ## API
 

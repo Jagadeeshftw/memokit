@@ -19,7 +19,7 @@ const { payload, memo } = prepareInstruction({
   ],
 });
 
-// 2. One XRPL payment carrying the 42-byte memo, then FDC attests it (~150 s, one FDC round).
+// 2. One XRPL payment carrying the 42-byte memo, then FDC attests it in its next voting round (~90 s).
 const sent = await sendMemoPayment({ network: COSTON2, wallet: owner, destination: RECEIVING, drops: "1000000", memo });
 const request = await requestAttestation({ signer: relayer, xrplHash: sent.hash, network: COSTON2 });
 const { proof } = await waitForProof({ request, network: COSTON2 });
