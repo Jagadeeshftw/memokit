@@ -4,6 +4,10 @@ Type exactly what is in the grey blocks, in order. Every command was run end to 
 2026-09-23; the "what you see" blocks are real output from that run, trimmed. Where a value
 changes from run to run (a hash, a block number), it is shown as `<...>`.
 
+> **Balances on this page are examples from the 2026-09-23 dry run**, not the current state. Every
+> run changes them. Read the current ones with the commands in steps 1 and 2 before you record, and
+> trust those over any figure printed here.
+
 The demo: one XRPL payment, built as a QR, tells a memokit account on Flare to redeem 10 FXRP.
 The deployed executor picks it up, gets it attested and executes it, with nobody touching a
 keyboard. An FAssets agent then sends XRP back to the same XRPL address.
@@ -200,8 +204,8 @@ About 1 s. What you see:
 9150000 [9.15e6]
 ```
 
-That is 9.15 FTestXRP (six decimals). Below 10.1, it needs funding. After the dry run it holds
-9.15, so **it needs funding before you record.**
+That is 9.15 FTestXRP (six decimals): the balance after the 2026-09-23 dry run, shown as an
+example. Below 10.1, it needs funding before you record.
 
 `0x9dD656e6…` is the memokit account for `rpnDcUjasCYome3WntkxqQ3gG4wuLXM4WE`. To see it derived
 rather than take it on trust:
@@ -643,7 +647,8 @@ Measured in the dry run on 2026-09-23:
 Each practice run needs a fresh lot, because a cash-out takes the account from ~19 back to ~9.
 **About 3.5 C2FLR per practice run in total**, most of it the minting.
 
-Balances after the dry run, payout included: executor 18.98 C2FLR, deployer 19.15 C2FLR, account
-9.15 FTestXRP, owner 61.80 XRP. That's **about 6 practice runs before the deployer runs dry**; the executor
-alone would last ~38. The deployer refills from https://faucet.flare.network/coston2, and the
+For example, balances after the 2026-09-23 dry run, payout included: executor 18.98 C2FLR, deployer
+19.15 C2FLR, account 9.15 FTestXRP, owner 61.80 XRP. At those balances that was **about 6 practice
+runs before the deployer ran dry**; the executor alone would have lasted ~38. Read today's balances
+before relying on either figure. The deployer refills from https://faucet.flare.network/coston2, and the
 owner from https://faucet.altnet.rippletest.net/accounts.
