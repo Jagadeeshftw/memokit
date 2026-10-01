@@ -56,6 +56,12 @@ export interface TrackedInstruction {
     abiEncodedRequest: string;
     feeWei: string;
     at: number;
+    /** When this service first saw the round finalised with no proof served for the request. */
+    unservedSince?: number;
+    /** How many times it has requested again after a round served no proof. */
+    reattempts?: number;
+    /** Earlier rounds that finalised without serving a proof for this request. */
+    unservedRounds?: number[];
   };
   /** Set once the instruction has been executed, by anyone. */
   execution?: {

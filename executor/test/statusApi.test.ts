@@ -14,7 +14,7 @@ describe("classifier state to published state", () => {
     for (const s of states) {
       expect(toStatusState(s, false)).toBeTruthy();
     }
-    expect(states).toHaveLength(7);
+    expect(states).toHaveLength(8);
   });
 
   it("splits 'awaiting attestation' on whether anybody has paid for one", () => {

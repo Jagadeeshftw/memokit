@@ -31,6 +31,10 @@ export interface ServiceConfig {
   backfillLimit: number;
   /** Give up on an instruction after this many failed attempts at the same stage. */
   maxAttempts: number;
+  /** Requests again after a round finalises with no proof served; see pipeline.ts. */
+  attestationRetries: number;
+  /** Seconds past such a round to keep asking the DA Layer before requesting again. */
+  unservedGraceSeconds: number;
   httpPort: number | null;
   /** Per-caller and global limits on the HTTP surface. */
   httpLimits: HttpLimits;
@@ -140,6 +144,8 @@ export function loadConfig(env = process.env): ServiceConfig {
     daRequestsPerMinute: num("DA_REQUESTS_PER_MINUTE", 20),
     backfillLimit: num("BACKFILL_LIMIT", 50),
     maxAttempts: num("MAX_ATTEMPTS", 8),
+    attestationRetries: num("ATTESTATION_RETRIES", 2),
+    unservedGraceSeconds: num("UNSERVED_GRACE_SECONDS", 120),
     // Read-only exists to serve the API, so it defaults the port on rather than off.
     httpPort: env.HTTP_PORT ? num("HTTP_PORT", 8080) : readOnly ? 8080 : null,
     httpLimits: {

@@ -4,7 +4,7 @@
  * Not indirection for its own sake: the interesting behaviour of an executor is what it does
  * when a submission reverts, when another executor wins, when an attestation never confirms.
  * Driving those against a live network is slow, expensive and unrepeatable, and mocking
- * `ethers` at the provider level tests `ethers`. Five methods can be faked exactly.
+ * `ethers` at the provider level tests `ethers`. Seven methods can be faked exactly.
  *
  * `controllerChain` is the real one, and it is the only place in the service that builds a
  * contract object.
@@ -36,7 +36,17 @@ export interface ExecutorChain {
   execute(proof: unknown[], payload: string): Promise<ExecutedTx>;
   /** Pay FDC to attest an XRPL payment. */
   requestAttestation(xrplHash: string): Promise<RequestedAttestation>;
+  /** The account's next nonce: an instruction bound to anything lower can never execute. */
+  nonceOf(account: string): Promise<bigint>;
+  /**
+   * Has FDC finalised this voting round on Flare? Once it has, a proof the DA Layer does not
+   * serve for a request in that round is never going to be served.
+   */
+  isRoundFinalized(votingRoundId: number): Promise<boolean>;
 }
+
+/** FDC's protocol id on the Relay. */
+const FDC_PROTOCOL_ID = 200;
 
 export function controllerChain(args: {
   controller: string;
@@ -46,6 +56,13 @@ export function controllerChain(args: {
 }): ExecutorChain {
   const read = new Contract(args.controller, CONTROLLER_ABI, args.provider);
   const write = new Contract(args.controller, CONTROLLER_ABI, args.wallet);
+  const registry = new Contract(
+    args.network.contractRegistry,
+    ["function getContractAddressByName(string) view returns (address)"],
+    args.provider,
+  );
+  // Resolved once, from Flare's registry, rather than pinned: the Relay is Flare's to replace.
+  let relay: Contract | undefined;
 
   return {
     isConsumed: (transactionId) => read.isXrplTransactionConsumed(transactionId),
@@ -68,6 +85,15 @@ export function controllerChain(args: {
         abiEncodedRequest: r.abiEncodedRequest,
         feeWei: r.feeWei,
       };
+    },
+    nonceOf: async (account) => BigInt(await read.nonceOf(account)),
+    isRoundFinalized: async (votingRoundId) => {
+      relay ??= new Contract(
+        await registry.getContractAddressByName("Relay"),
+        ["function isFinalized(uint256 protocolId, uint256 votingRoundId) view returns (bool)"],
+        args.provider,
+      );
+      return relay.isFinalized(FDC_PROTOCOL_ID, votingRoundId);
     },
   };
 }

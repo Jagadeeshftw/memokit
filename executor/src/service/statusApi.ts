@@ -53,6 +53,9 @@ export function toStatusState(
       return "stuck";
     case "not-an-instruction":
       return "skipped";
+    case "superseded":
+      // Can never run, like an expired one: the account's nonce has moved past it.
+      return "stuck";
   }
 }
 
@@ -88,7 +91,7 @@ export interface StatusResponse {
   note?: string;
   /** Seconds spent in each state so far, so the ~150 s attestation wait is visible. */
   elapsed: Record<string, number>;
-  attestation?: { txHash: string; votingRoundId: number; at: number };
+  attestation?: { txHash: string; votingRoundId: number; at: number; unservedRounds?: number[] };
   execution?: { txHash: string; blockNumber: number; byUs: boolean; at: number };
   /** Set when the service declined to work it, with the policy's reason. */
   skipReason?: string;
@@ -320,7 +323,15 @@ export async function statusOf(xrplHash: string, deps: StatusDeps): Promise<Stat
         }),
     elapsed: elapsedByState(transitions, now),
     ...(tracked?.attestation
-      ? { attestation: { txHash: tracked.attestation.txHash, votingRoundId: tracked.attestation.votingRoundId, at: tracked.attestation.at } }
+      ? {
+          attestation: {
+            txHash: tracked.attestation.txHash,
+            votingRoundId: tracked.attestation.votingRoundId,
+            at: tracked.attestation.at,
+            // Rounds that finalised without serving a proof, each followed by a fresh request.
+            ...(tracked.attestation.unservedRounds?.length ? { unservedRounds: tracked.attestation.unservedRounds } : {}),
+          },
+        }
       : {}),
     ...(tracked?.execution ? { execution: tracked.execution } : {}),
     ...(tracked?.skipReason ? { skipReason: tracked.skipReason } : {}),

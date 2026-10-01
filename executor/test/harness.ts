@@ -76,6 +76,8 @@ export function harness(over: Partial<ExecutorChain> = {}, policyOver = {}): Har
       calls.push("requestAttestation");
       return { txHash: "0xreq", votingRoundId: 900, abiEncodedRequest: "0xabi", feeWei: 1000n };
     },
+    nonceOf: async () => 0n,
+    isRoundFinalized: async () => false,
     ...over,
   } as ExecutorChain & { calls: string[] };
 

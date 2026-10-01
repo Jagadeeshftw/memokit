@@ -103,6 +103,8 @@ export async function main(): Promise<void> {
     log,
     metrics,
     maxAttempts: config.maxAttempts,
+    maxReattestations: config.attestationRetries,
+    unservedGraceMs: config.unservedGraceSeconds * 1000,
     dryRun: config.dryRun,
     payloadFor: payloadLookup(config.payloadsPath),
   };

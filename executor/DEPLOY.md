@@ -38,6 +38,8 @@ missing rather than failing forty minutes in.
 | `DA_REQUESTS_PER_MINUTE` | `20` | The measured public DA Layer limit. Lower it if you share an endpoint. |
 | `BACKFILL_LIMIT` | `50` | How many ledger entries to read per address per poll. |
 | `MAX_ATTEMPTS` | `8` | Attempts at a stage before an instruction is parked as `stuck`. |
+| `ATTESTATION_RETRIES` | `2` | How many times to request an attestation again when its voting round finalises and the DA Layer never serves a proof for it. Each one is logged as a warning; when they run out, the instruction is parked as `stuck`. |
+| `UNSERVED_GRACE_SECONDS` | `120` | How long after such a round finalises to keep asking the DA Layer, for ordinary lag, before requesting again. |
 | `HTTP_PORT` | off (`8080` in read-only) | Serves `/healthz`, `/metrics`, `/instructions`, `/status/{hash}`. |
 | `LOW_BALANCE_WEI` | `2000000000000000000` (2 C2FLR) | Below this, `/healthz` and `/metrics` flag the executor as low. About eight instructions of headroom. |
 | `RATE_LIMIT_PER_IP_PER_MINUTE` | `30` | Per-caller request rate. |

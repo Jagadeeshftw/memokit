@@ -57,7 +57,31 @@ export interface PipelineDeps {
   ): Promise<{ votingRoundId: number; abiEncodedRequest: string } | null>;
   /** Injected so tests can drive the clock. */
   now?(): number;
+  /**
+   * How many times to request an attestation again after a round finalises without the DA Layer
+   * ever serving a proof for the request. Default {@link DEFAULT_REATTESTATIONS}.
+   */
+  maxReattestations?: number;
+  /**
+   * How long after first seeing such a round finalised to keep asking the DA Layer before
+   * treating the request as unattested. Default {@link DEFAULT_UNSERVED_GRACE_MS}.
+   */
+  unservedGraceMs?: number;
 }
+
+/**
+ * Re-requests after an unserved round. One round leaving a request unattested has been seen live
+ * (2026-10-01, 231B7917...); two more requests in later rounds bound the cost at 3x the fee, and an
+ * instruction that three rounds will not attest is better parked as `stuck` than paid for again.
+ */
+export const DEFAULT_REATTESTATIONS = 2;
+
+/**
+ * The DA Layer serves a proof seconds to tens of seconds after the round's root is published:
+ * across the live runs, root to execute took 11-53 s including polling. Two minutes past a
+ * finalised round with nothing served is not lag.
+ */
+export const DEFAULT_UNSERVED_GRACE_MS = 120_000;
 
 /**
  * What losing a race actually costs, in the two places it can be lost.
@@ -136,6 +160,7 @@ async function triage(instruction: TrackedInstruction, deps: PipelineDeps, log: 
   const memo = instruction.memo ? fromXrplMemoData(instruction.memo) : null;
   let opcode: number | null = null;
   let fee: { token: string; amount: bigint } | null = null;
+  let instructionNonce: bigint | null = null;
 
   if (memo) {
     try {
@@ -143,8 +168,9 @@ async function triage(instruction: TrackedInstruction, deps: PipelineDeps, log: 
       opcode = decoded.opcode;
       const payload = payloadOf(decoded, memo, deps, instruction.transactionId);
       if (payload) {
-        const { feeToken, feeAmount } = decodeInstruction(payload);
+        const { feeToken, feeAmount, nonce } = decodeInstruction(payload);
         fee = { token: feeToken, amount: feeAmount };
+        instructionNonce = nonce;
       }
     } catch (e) {
       log.debug("memo did not decode", { error: (e as Error).message });
@@ -181,6 +207,16 @@ async function triage(instruction: TrackedInstruction, deps: PipelineDeps, log: 
   }
 
   const account = await deps.chain.accountFor(instruction.xrplOwner);
+
+  // An instruction whose nonce the account has already passed can never execute, so nothing is
+  // spent on it -- not even the attestation, which would buy a proof whose only use is a revert.
+  if (instructionNonce !== null) {
+    const accountNonce = await deps.chain.nonceOf(account);
+    if (instructionNonce < accountNonce) {
+      markSuperseded(instruction, { instructionNonce, accountNonce }, deps, log, { opcode, account });
+      return;
+    }
+  }
 
   // Somebody may already have requested the attestation -- another executor, or this service
   // before a restart that lost its state. The request bytes are deterministic, so the DA Layer
@@ -219,7 +255,7 @@ async function triage(instruction: TrackedInstruction, deps: PipelineDeps, log: 
   // DEFERRED, deliberately: checking FdcHub's AttestationRequest events for an identical request
   // before paying here, the way `executor/src/importFromFsa.ts` now does.
   //
-  // Why not yet. It saves nothing today. There is one memokit executor, and in all seven live
+  // Why not yet. It saves nothing today. There is one memokit executor, and in all eleven live
   // memokit runs nobody else ever requested the same attestation, so there has been nothing to
   // reuse. And to work here it has to wait: this runs within ~15 s of the payment appearing,
   // usually before any other executor has requested, so it would have to hold its own request
@@ -282,6 +318,10 @@ async function deliver(
     return;
   }
   if (status !== 200 || !("proof" in body)) {
+    if (instruction.state === "attesting" && (await deps.chain.isRoundFinalized(instruction.attestation.votingRoundId))) {
+      await unserved(instruction, deps, log, now);
+      return;
+    }
     deps.store.update(instruction.transactionId, { nextAttemptAt: now + 30_000 });
     log.debug("proof not ready", { status, round: instruction.attestation.votingRoundId });
     return;
@@ -314,6 +354,11 @@ async function deliver(
         RACE_COST.beforeSubmit,
       );
       log.info("lost the race", { where: "before-submit", note: RACE_COST.beforeSubmit });
+      return;
+    }
+    const superseded = await supersession(instruction, deps);
+    if (superseded) {
+      markSuperseded(instruction, superseded, deps, log);
       return;
     }
     throw new Error(`simulation reverted: ${describeRevert(error)}`);
@@ -368,6 +413,129 @@ async function deliver(
 // --- helpers ----------------------------------------------------------------------------
 
 /** The bytes `execute` takes as `_data`: the payload, or empty for a management opcode. */
+/**
+ * The round this service paid for has finalised, and the DA Layer has no proof for the request.
+ *
+ * Seen live once (2026-10-01, 231B7917...): the root was published and the DA Layer answered
+ * "attestation request not found" for that request in every neighbouring round. Polling the same
+ * round can never succeed, so after a grace period for DA lag this requests the attestation again,
+ * in a later round, up to a bound -- and says so in the log every time.
+ */
+async function unserved(instruction: TrackedInstruction, deps: PipelineDeps, log: Logger, now: number): Promise<void> {
+  const attestation = instruction.attestation!;
+  const round = attestation.votingRoundId;
+  const graceMs = deps.unservedGraceMs ?? DEFAULT_UNSERVED_GRACE_MS;
+  const since = attestation.unservedSince ?? now;
+  if (attestation.unservedSince === undefined || now - since < graceMs) {
+    deps.store.update(instruction.transactionId, {
+      attestation: { ...attestation, unservedSince: since },
+      nextAttemptAt: now + 30_000,
+    });
+    log.debug("round finalised, proof not served yet", { round, waitedSeconds: Math.round((now - since) / 1000) });
+    return;
+  }
+
+  // Before paying again: somebody may have delivered it through another round, or the account may
+  // have moved past it.
+  if (await deps.chain.isConsumed(instruction.transactionId)) {
+    deps.store.update(
+      instruction.transactionId,
+      { state: "executed", execution: { txHash: "", blockNumber: 0, byUs: false, at: now } },
+      "executed by someone else while this service's attestation went unserved",
+    );
+    log.info("already executed elsewhere", { unservedRound: round });
+    return;
+  }
+  const superseded = await supersession(instruction, deps);
+  if (superseded) {
+    markSuperseded(instruction, superseded, deps, log);
+    return;
+  }
+
+  const done = attestation.reattempts ?? 0;
+  const max = deps.maxReattestations ?? DEFAULT_REATTESTATIONS;
+  const unservedRounds = [...(attestation.unservedRounds ?? []), round];
+  if (done >= max) {
+    const message =
+      `FDC finalised round ${round} without serving a proof for this request, and ${done} further ` +
+      `request(s) in rounds ${unservedRounds.join(", ")} fared no better; not paying again`;
+    deps.metrics.inc("memokit_executor_attestations_unserved_total", { outcome: "gave-up" });
+    deps.store.update(
+      instruction.transactionId,
+      { state: "stuck", attestation: { ...attestation, unservedRounds }, lastError: { at: now, stage: "attesting", message } },
+      message,
+    );
+    log.error("attestation never served; giving up", { unservedRounds, requests: done + 1 });
+    return;
+  }
+
+  if (deps.dryRun) {
+    log.info("DRY RUN: would request the attestation again", { unservedRound: round, retry: done + 1, of: max });
+    deps.store.update(instruction.transactionId, { nextAttemptAt: now + 60_000 });
+    return;
+  }
+
+  const request = await deps.chain.requestAttestation(instruction.xrplHash);
+  deps.metrics.inc("memokit_executor_attestations_requested_total");
+  deps.metrics.inc("memokit_executor_attestations_unserved_total", { outcome: "requested-again" });
+  deps.store.update(instruction.transactionId, {
+    attestation: {
+      txHash: request.txHash,
+      votingRoundId: request.votingRoundId,
+      abiEncodedRequest: request.abiEncodedRequest,
+      feeWei: request.feeWei.toString(),
+      at: now,
+      reattempts: done + 1,
+      unservedRounds,
+    },
+    nextAttemptAt: now + 60_000,
+  });
+  log.warn("attestation not served; requested again in a later round", {
+    unservedRound: round,
+    finalisedWithoutProofForSeconds: Math.round((now - since) / 1000),
+    retry: done + 1,
+    of: max,
+    newRound: request.votingRoundId,
+    tx: request.txHash,
+  });
+}
+
+/** The instruction's nonce and the account's, when the account has already passed it. */
+async function supersession(
+  instruction: TrackedInstruction,
+  deps: PipelineDeps,
+): Promise<{ instructionNonce: bigint; accountNonce: bigint } | null> {
+  const payload = executePayload(instruction, deps);
+  if (!payload || payload === "0x") return null;
+  let instructionNonce: bigint;
+  try {
+    instructionNonce = decodeInstruction(payload).nonce;
+  } catch {
+    return null;
+  }
+  const account = instruction.account ?? (await deps.chain.accountFor(instruction.xrplOwner));
+  const accountNonce = await deps.chain.nonceOf(account);
+  return instructionNonce < accountNonce ? { instructionNonce, accountNonce } : null;
+}
+
+function markSuperseded(
+  instruction: TrackedInstruction,
+  s: { instructionNonce: bigint; accountNonce: bigint },
+  deps: PipelineDeps,
+  log: Logger,
+  extra: Partial<TrackedInstruction> = {},
+): void {
+  const reason =
+    `superseded: bound to nonce ${s.instructionNonce}, but the account is already at ${s.accountNonce}, ` +
+    `so it can never execute`;
+  deps.metrics.inc("memokit_executor_declined_total", { reason: "superseded" });
+  deps.store.update(instruction.transactionId, { ...extra, state: "stuck", skipReason: reason }, reason);
+  log.info("superseded; not working it", {
+    instructionNonce: s.instructionNonce.toString(),
+    accountNonce: s.accountNonce.toString(),
+  });
+}
+
 function executePayload(instruction: TrackedInstruction, deps: PipelineDeps): string | null {
   if (instruction.opcode !== null && RESCUE_OPCODES.has(instruction.opcode)) return "0x";
   const memo = instruction.memo ? fromXrplMemoData(instruction.memo) : null;
