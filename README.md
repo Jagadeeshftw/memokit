@@ -22,12 +22,13 @@ running at https://memokit-executor-production.up.railway.app;
 [executor/DEPLOY.md](executor/DEPLOY.md) is the guide to running another.
 
 > **Latency is about two and a half minutes, and most of it is FDC's round cadence, not this code.**
-> Across all nineteen live runs to date, from the XRPL payment's ledger close to the executed call on
-> Flare: **92–174 s, median 140 s**. The largest part is the FDC leg — from the attestation request
-> to Flare publishing that voting round's Merkle root — at **46–86% of the total, median 75%**. The
-> rest is seeing the payment and requesting (8–23 s), then fetching the proof and submitting
-> (11–53 s); the open executor usually takes longer there (18–53 s, median 33 s, against 11–30 s for
-> the scripts) because it polls rather than waits.
+> Across the twenty live runs whose first FDC round served the proof, from the XRPL payment's ledger
+> close to the executed call on Flare: **92–207 s, median 144 s**. The largest part is the FDC leg —
+> from the attestation request to Flare publishing that voting round's Merkle root — at **46–86% of the
+> total, median 73%**. The rest is seeing the payment and requesting (3–23 s), then fetching the proof
+> and submitting (11–56 s); the open executor usually takes longer there (18–56 s, median 34 s, against
+> 11–30 s for the scripts) because it polls rather than waits. One more run took **392 s**: its first
+> round finalised without the proof ever being served, and the executor requested again in a later round.
 > Every figure is from chain timestamps, and every run is listed in
 > [`latency-all-runs.json`](fixtures/measurements/latency-all-runs.json). Nothing here can
 > shorten the FDC leg, so instructions that depend on a price carry a deadline (see
@@ -137,11 +138,11 @@ A cash-out is not "no mint". The FXRP is burned, and FAssets' redemption mints i
 in the same transaction, so total supply falls by the redeemed lot less that fee. memokit mints
 nothing, but "nothing was minted" must never be said of a cash-out.
 
-**How long the XRP takes depends on the FAssets agent, not on memokit.** Four live cash-outs so far,
+**How long the XRP takes depends on the FAssets agent, not on memokit.** Five live cash-outs so far,
 measured from the XRPL payment's ledger close to the payout's ledger close: **141 s** in this run,
 **18.2 minutes** (1,090 s) in the demo dry run of 2026-09-23, 179 s in the video's run of
-2026-09-30 and 140 s in the docs' run of 2026-10-01. From the execute to the payout that is 22 s,
-16.2 minutes, 30 s and 9 s. Every agent paid on time.
+2026-09-30, and 140 s and 401 s in the docs' and the re-recorded video's runs of 2026-10-01. From the
+execute to the payout that is 22 s, 16.2 minutes, 30 s, 9 s and 9 s. Every agent paid on time.
 
 Two different clocks, and they measure different things. In this run, **148 s** is what the user
 waited: from signing the XRPL payment to XRP arriving on XRPL. **297 s** is when Flare *confirmed* the agent's
@@ -239,9 +240,9 @@ griefing analysis.
 Attestation takes minutes and markets do not wait, so an instruction that touches a price should
 commit to a deadline and a minimum output in its own calldata. Both are then inside the hash.
 `DEFAULT_DEADLINE_SECONDS` is **900**. It was derived from Phase 1's worst of 162 s, plus one missed
-90 s round, times 3.5. The worst measured since is 174 s from XRPL ledger close (the fund
-migration), about 180 s from submit; against that, 900 s is still
-about 3.3 times a slow-but-ordinary path. The derivation is next to the constant in
+90 s round, times 3.5. The worst measured since is 207 s from XRPL ledger close when the first FDC
+round served the proof, and 392 s when it did not and the executor requested again; 900 s is about
+3 times the first (207 s plus a missed round) and about 2.3 times the second. The derivation is next to the constant in
 `sdk/src/deadline.ts`.
 
 ## Layout
@@ -368,12 +369,12 @@ Limits, stated rather than left to be discovered:
 - **Post-conditions are floors only.** An instruction that spends cannot assert its own purpose;
   a cash-out asserts what it left behind instead.
 - **A cash-out is not atomic, and its timing is the agent's.** `redeem` creates an obligation
-  that an FAssets *agent* discharges or defaults on. Across the four live cash-outs the agent paid
+  that an FAssets *agent* discharges or defaults on. Across the five live cash-outs the agent paid
   between 9 s and 16.2 minutes after the execute: from XRPL ledger close to payout close, 140 s to
   18.2 minutes. In the faster run the XRP arrived 148 s after the user signed, and Flare only
   confirmed that payout 297 s after signing, because the agent has to prove it through FDC.
 - **A cash-out burns FXRP, and FAssets mints itself a fee.** Supply fell 9.998 FTestXRP across the
-  execute block on all four live cash-outs. "No mint" holds for the vault-deposit and payout runs,
+  execute block on all five live cash-outs. "No mint" holds for the vault-deposit and payout runs,
   where supply was identical across the execute block, and never for a cash-out. On a default the redeemer is paid in collateral on
   Flare rather than XRP, and somebody has to submit the non-existence proof.
 - **One lot does not deliver one lot.** 10.000000 FXRP produced 9.948010 XRP, through an FAssets

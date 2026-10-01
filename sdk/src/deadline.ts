@@ -14,11 +14,12 @@
  *   = a slow-but-ordinary path        252 s
  *   x a safety factor of 3.5          ~ 900 s
  *
- * The worst observed has since risen. Across all nineteen live runs to 2026-10-01 the slowest was the
- * fund migration, 174 s from XRPL ledger close to execution -- about 180 s from submit -- and the
- * open executor's runs have taken 92-167 s from ledger close; it polls rather than waits (every
- * run: fixtures/measurements/latency-all-runs.json). Redone with 180 s the path is 270 s, and 900 s is a
- * factor of about 3.3 rather than 3.5. Still comfortable, so the constant stands; the margin is
+ * The worst observed has since risen. Across all twenty-one live runs to 2026-10-01, the slowest
+ * whose first FDC round served the proof was the re-recorded video's vault deposit, 207 s from
+ * XRPL ledger close to execution; with one missed round that path is about 297 s, and 900 s is about
+ * 3 times it. One run took 392 s: its round finalised without the proof ever being served, and the
+ * executor requested again in a later round. 900 s is about 2.3 times that (every run:
+ * fixtures/measurements/latency-all-runs.json). Still comfortable, so the constant stands; the margin is
  * recorded here so it is not quietly assumed to be larger than it is.
  *
  * 900 s (15 min) leaves the executor several rounds of slack for RPC hiccups and DA Layer

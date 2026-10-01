@@ -30,9 +30,10 @@ const deadline = deadlineFromNow();          // now + 900 s, in Unix seconds
 ```
 
 `DEFAULT_DEADLINE_SECONDS` is **900**. It was derived from the worst run Phase 1 measured, plus one
-missed 90-second FDC round, times 3.5. The slowest live run since took 174 s from the XRPL ledger
-close to the execute, about 180 s from signing, so 900 s is still about 3.3 times a slow but ordinary
-path. The derivation is next to the constant in `sdk/src/deadline.ts`. Pass your own number if your
+missed 90-second FDC round, times 3.5. The slowest live run since whose first FDC round served the
+proof took 207 s from the XRPL ledger close to the execute; with one missed round that path is about
+297 s, and 900 s is about 3 times it. One run took 392 s, because its round never served the proof
+and the executor requested again; 900 s is about 2.3 times that. The derivation is next to the constant in `sdk/src/deadline.ts`. Pass your own number if your
 tolerance is tighter.
 
 ## 3. The FTSOv2 rate bound

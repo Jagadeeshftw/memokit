@@ -102,7 +102,41 @@
    "requestsInWindow": 48,
    "forThisPayment": 1,
    "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D"
+  },
+  {
+   "run": "video v2: cash-out",
+   "xrpl": "A79EB7B015CD1CB1C04E6D7C49C991B381117381A0A35610FC0A523224EC9AF7",
+   "fromBlock": 36070168,
+   "toBlock": 36070618,
+   "requestsInWindow": 202,
+   "forThisPayment": 2,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D",
+   "rounds": [
+    1471377
+   ],
+   "requests": [
+    {
+     "tx": "0x5998603f9f0488eab73f9c164146d1c5f41ec12cf321141b5e4e7b6e5157c7ec",
+     "block": 36070318
+    },
+    {
+     "tx": "0x7f90b28319f3eff6225ccff76f94669f4e80a3b78e6adb1390130cc96540a0a1",
+     "block": 36070515
+    }
+   ]
+  },
+  {
+   "run": "video v2: vault deposit",
+   "xrpl": "AC391FAA9D5EFFEF64AAC76767D34E2845786289A41BD94EE6E7C505D2B9B928",
+   "fromBlock": 36070612,
+   "toBlock": 36070862,
+   "requestsInWindow": 97,
+   "forThisPayment": 1,
+   "requester": "0xD4dFA2b68d14fc71BF5940559Ad9F819c1b0350D",
+   "rounds": [
+    1471381
+   ]
   }
  ],
- "result": "Eleven of eleven: exactly one request per payment, sent by the relayer that executed it. Nobody else requested the same attestation."
+ "result": "Thirteen of thirteen: every request for each payment was sent by the relayer that executed it; nobody else requested the same attestation. The re-recorded video cash-out has two requests, both the executor's: the first round finalised without serving a proof, and the executor requested again."
 }

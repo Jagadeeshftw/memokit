@@ -14,7 +14,7 @@ XRPL. When it pays is up to the agent.
 the XRP.
 
 **Time:** about two and a half minutes to execute on Flare. The XRP then arrives when the agent pays:
-across four live cash-outs, from the XRPL payment's ledger close to the payout's ledger close, 140 s
+across five live cash-outs, from the XRPL payment's ledger close to the payout's ledger close, 140 s
 to 18.2 minutes. **Cost:** a 1 XRP carrier payment and a 0.1 FTestXRP executor fee.
 
 ## Before you start

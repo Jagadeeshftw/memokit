@@ -67,7 +67,7 @@ On Flare mainnet an attestation request costs 20 FLR plus about 0.054 FLR of gas
 | FDC voting round | 90 s between round boundaries |
 | XRPL ledger close to execute | about two and a half minutes; every run is in [Latency across all live runs](/docs/evidence/latency) |
 | Proof validity window | 24 hours on the current deployment |
-| A cash-out's XRP | from 140 s to 18.2 minutes after the XRPL payment's ledger close across four live runs, set by the FAssets agent |
+| A cash-out's XRP | from 140 s to 18.2 minutes after the XRPL payment's ledger close across five live runs, set by the FAssets agent |
 | `DEFAULT_DEADLINE_SECONDS` | 900 |
 
 ## Testnet FAssets

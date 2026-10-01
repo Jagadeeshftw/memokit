@@ -39,7 +39,7 @@ When a page and the ledger disagree, the ledger is right.
 **Latency is about two and a half minutes**, and most of it is FDC's voting round. See
 [Latency across all live runs](/docs/evidence/latency) for every run.
 
-**A cash-out's XRP arrives when an FAssets agent pays it**, not when memokit executes. Across four
+**A cash-out's XRP arrives when an FAssets agent pays it**, not when memokit executes. Across five
 live cash-outs, from the XRPL payment's ledger close to the payout's ledger close, that took from
 140 s to 18.2 minutes; from the execute, from 9 s to 16.2 minutes. Every agent paid on time.
 

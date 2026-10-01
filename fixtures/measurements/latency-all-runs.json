@@ -1,5 +1,5 @@
 {
- "note": "End-to-end latency and the FDC leg, recomputed from chain timestamps for every live run in which an XRPL payment led to an execute on Coston2 -- nineteen, as of 2026-10-01: fourteen to 2026-09-30 (the last two the grant video's cash-out and vault deposit), and five on 2026-10-01 (two status-page checks, the docs' SDK quickstart and cash-out, and a fourth FSA import). Nothing here comes from a script's own clock: every figure is a difference between an XRPL ledger close time and Coston2 block timestamps. Each run's voting round is the Relay's getVotingRoundId at its request's timestamp, and matches the round the executor recorded where it recorded one.",
+ "note": "End-to-end latency and the FDC leg, recomputed from chain timestamps for every live run in which an XRPL payment led to an execute on Coston2 -- twenty-one, as of 2026-10-01: fourteen to 2026-09-30 (the last two the grant video's first cash-out and vault deposit), and seven on 2026-10-01 (two status-page checks, the docs' SDK quickstart and cash-out, a fourth FSA import, and the re-recorded video's cash-out and vault deposit). One run, the re-recorded video's cash-out, waited out a round that finalised without its proof ever being served, then a re-request; it is marked unservedRounds and summarised separately as well. Nothing here comes from a script's own clock: every figure is a difference between an XRPL ledger close time and Coston2 block timestamps. Each run's voting round is the Relay's getVotingRoundId at its request's timestamp, and matches the round the executor recorded where it recorded one.",
  "computedAt": "2026-10-01",
  "definitions": {
   "total": "XRPL payment's ledger close -> the execute's block timestamp",
@@ -14,36 +14,55 @@
   "relay": "0x5017728F117501A24EF9C3756C07f0d564598596, topic ProtocolMessageRelayed(uint8,uint32,bool,bytes32)"
  },
  "summary": {
-  "runs": 19,
+  "runs": 21,
   "totalSeconds": {
    "min": 92,
-   "max": 174,
-   "median": 140
+   "max": 392,
+   "median": 147
   },
   "fdcLegSeconds": {
    "min": 56,
-   "max": 146,
-   "median": 99
+   "max": 353,
+   "median": 102
   },
   "fdcSharePercent": {
    "min": 45.7,
-   "max": 85.8,
+   "max": 90.1,
    "median": 74.8
   },
   "closeToRequestSeconds": {
-   "min": 8,
+   "min": 3,
    "max": 23,
    "median": 13
   },
   "rootToExecuteSeconds": {
    "min": 11,
-   "max": 53,
-   "median": 23
+   "max": 56,
+   "median": 24
   },
-  "slowest": "fund migration",
+  "firstRoundServed": {
+   "runs": 20,
+   "totalSeconds": {
+    "min": 92,
+    "max": 207,
+    "median": 143.5
+   },
+   "fdcLegSeconds": {
+    "min": 56,
+    "max": 146,
+    "median": 100.5
+   },
+   "fdcSharePercent": {
+    "min": 45.7,
+    "max": 85.8,
+    "median": 72.8
+   }
+  },
+  "slowest": "video v2: cash-out",
+  "slowestFirstRoundServed": "video v2: vault deposit",
   "fastest": "status check, vault deposit 2"
  },
- "supersedes": "README's 'about 90%' and CLAIMS' '80 to 90%' / '79-94%'. Those came from the scripts' own stage marks and counted DA Layer polling as part of the FDC leg; the chain cannot see DA availability, so this file measures the leg to the root being published instead. The nine-run '114-173 s' omitted the fund migration (174 s). The twelve-run summary (114-174 s, median 151 s; FDC leg 46-86%, median 73%) is superseded by this one. The fourteen-run summary (114-174 s, median 148 s) is superseded by this one.",
+ "supersedes": "README's 'about 90%' and CLAIMS' '80 to 90%' / '79-94%'. Those came from the scripts' own stage marks and counted DA Layer polling as part of the FDC leg; the chain cannot see DA availability, so this file measures the leg to the root being published instead. The nine-run '114-173 s' omitted the fund migration (174 s). The twelve-run summary (114-174 s, median 151 s; FDC leg 46-86%, median 73%) is superseded by this one. The fourteen-run summary (114-174 s, median 148 s) is superseded by this one. The nineteen-run summary (92-174 s, median 140 s) is superseded by this one.",
  "runs": [
   {
    "run": "P1 mock vault",
@@ -405,6 +424,48 @@
    "rootToExecute": 11,
    "total": 105,
    "fdcShare": 80.0
+  },
+  {
+   "run": "video v2: cash-out",
+   "kind": "memokit",
+   "xrpl": "A79EB7B015CD1CB1C04E6D7C49C991B381117381A0A35610FC0A523224EC9AF7",
+   "execute": "0x5f91c4cec58d872edd528a544ce3e506fce36902e5ab9bf975231f75eb62673b",
+   "xrplClose": 1790853721,
+   "requestBlock": 36070318,
+   "requestTs": 1790853724,
+   "round": 1471377,
+   "rootRelayedBlock": 36070590,
+   "rootRelayedTs": 1790854077,
+   "executeBlock": 36070618,
+   "executeTs": 1790854113,
+   "closeToRequest": 3,
+   "fdcLeg": 353,
+   "rootToExecute": 36,
+   "total": 392,
+   "fdcShare": 90.1,
+   "unservedRounds": [
+    1471377
+   ],
+   "note": "The first request (round 1471377) finalised without the DA Layer ever serving a proof; the executor requested again (round 1471377). fdcLeg runs from the first request to the root of the round that served the proof, so it includes the unserved round and the re-request."
+  },
+  {
+   "run": "video v2: vault deposit",
+   "kind": "memokit",
+   "xrpl": "AC391FAA9D5EFFEF64AAC76767D34E2845786289A41BD94EE6E7C505D2B9B928",
+   "execute": "0x8975d5bccacbfb50a46023a6973341852ebe13ce6ae9c941b180b87bdfb62656",
+   "xrplClose": 1790854281,
+   "requestBlock": 36070733,
+   "requestTs": 1790854295,
+   "round": 1471381,
+   "rootRelayedBlock": 36070830,
+   "rootRelayedTs": 1790854432,
+   "executeBlock": 36070862,
+   "executeTs": 1790854488,
+   "closeToRequest": 14,
+   "fdcLeg": 137,
+   "rootToExecute": 56,
+   "total": 207,
+   "fdcShare": 66.2
   }
  ]
 }

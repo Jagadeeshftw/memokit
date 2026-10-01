@@ -59,6 +59,6 @@ builds cash-outs and vault deposits with a floor already attached.
 
 ## Where they have run
 
-Post-conditions have run live seven times, all passing: a balance floor on each of the four live
-cash-outs, and a share floor on three vault deposits. None has yet caught a live failure. The
+Post-conditions have run live nine times, all passing: a balance floor on each of the five live
+cash-outs, and a share floor on four vault deposits. None has yet caught a live failure. The
 failure path is covered by the test suite (`test/PostConditions.t.sol`) and on the Kinetic fork.
